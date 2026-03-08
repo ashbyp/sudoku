@@ -20,7 +20,7 @@ BASE_SOLUTION: Grid = [
 DIFFICULTY_REMOVALS = {
     "easy": 36,
     "medium": 45,
-    "hard": 54,
+    "hard": 50,
 }
 
 

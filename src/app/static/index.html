@@ -17,32 +17,67 @@
       </section>
 
       <section class="controls">
-        <label for="difficulty">Difficulty</label>
-        <select id="difficulty">
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-        <button id="new-game" type="button">New game</button>
-        <button id="solve-board" type="button">Solve board</button>
+        <div class="control-group control-group-field">
+          <label for="difficulty">Difficulty</label>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="control-group control-group-actions">
+          <button id="new-game" type="button">New game</button>
+          <button id="reset-board" type="button">Reset board</button>
+          <button id="show-incorrect" type="button">Show incorrect</button>
+          <button id="solve-board" type="button">Solve board</button>
+        </div>
       </section>
 
       <section class="game">
         <div id="board" class="board" aria-label="Sudoku board"></div>
-        <aside class="panel">
-          <p id="status-message">Loading puzzle...</p>
-          <div class="number-pad-wrap">
-            <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
-            <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
-            <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
+        <aside class="side-panel">
+          <div class="panel tool-panel">
+            <div class="number-pad-wrap">
+              <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
+              <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
+              <button id="auto-notes" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates" title="Fill pencil marks with valid candidates">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                  <circle cx="9" cy="9" r="1.2"></circle>
+                  <circle cx="15" cy="11.5" r="1.2"></circle>
+                  <circle cx="11.5" cy="15" r="1.2"></circle>
+                </svg>
+                <span>Auto notes</span>
+              </button>
+              <button id="undo-action" class="clear-button control-muted" type="button">Undo</button>
+              <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
+            </div>
           </div>
-          <p class="hint">
-            Click a cell, then choose a number from the pad. In pencil mode, clicking an existing note removes it.
-          </p>
+          <div class="panel status-panel">
+            <p id="status-message">Loading puzzle...</p>
+            <p class="hint">
+              Click a cell, then choose a number from the pad. In pencil mode, clicking an existing note removes it.
+            </p>
+          </div>
         </aside>
       </section>
     </main>
 
+      <div id="completion-burst" class="completion-burst" aria-hidden="true">
+        <div class="completion-scrim"></div>
+        <div class="completion-card">
+          <button id="dismiss-completion" class="dismiss-completion" type="button" aria-label="Dismiss celebration">x</button>
+          <p class="completion-kicker">Puzzle Complete</p>
+          <h2>You cracked it.</h2>
+          <p>The whole board is clean. Enjoy the victory lap.</p>
+          <div id="confetti-field" class="confetti-field" aria-hidden="true"></div>
+        </div>
+      </div>
+
     <script src="/static/app.js" defer></script>
   </body>
 </html>
+
+
+
+
