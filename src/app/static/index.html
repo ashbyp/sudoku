@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sudoku</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">Playable first version</p>
+        <h1>Sudoku</h1>
+        <p class="subtitle">
+          Start a puzzle, fill the grid, and let the app tell you when the board is clean or solved.
+        </p>
+      </section>
+
+      <section class="controls">
+        <label for="difficulty">Difficulty</label>
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+        <button id="new-game" type="button">New game</button>
+        <button id="solve-board" type="button">Solve board</button>
+      </section>
+
+      <section class="game">
+        <div id="board" class="board" aria-label="Sudoku board"></div>
+        <aside class="panel">
+          <p id="status-message">Loading puzzle...</p>
+          <div class="number-pad-wrap">
+            <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
+            <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
+            <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
+          </div>
+          <p class="hint">
+            Click a cell, then choose a number from the pad. In pencil mode, clicking an existing note removes it.
+          </p>
+        </aside>
+      </section>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
