@@ -280,6 +280,18 @@ function candidateDigitsForCell(cell, board) {
   return Array.from({ length: 9 }, (_, index) => index + 1).filter((digit) => !blocked.has(digit));
 }
 
+function boxPeerCells(cell) {
+  const boxRowStart = Math.floor(cell.row / 3) * 3;
+  const boxColumnStart = Math.floor(cell.column / 3) * 3;
+
+  return cells.filter((candidate) => (
+    (candidate.row !== cell.row || candidate.column !== cell.column)
+    && candidate.row >= boxRowStart
+    && candidate.row < boxRowStart + 3
+    && candidate.column >= boxColumnStart
+    && candidate.column < boxColumnStart + 3
+  ));
+}
 function applyAutoNotes(targetCells, options) {
   const board = currentBoard();
   const changedCells = targetCells.filter((cell) => {
@@ -558,13 +570,13 @@ function applyDigitToSelection(digit, forcePencil = false) {
     return;
   }
 
-  const action = {
-    label: usePencilMode ? "pencil marks" : `number ${digit}`,
-    highlightedValue,
-    cells: changedCells.map(snapshotCell),
-  };
-
   if (usePencilMode) {
+    const action = {
+      label: "pencil marks",
+      highlightedValue,
+      cells: changedCells.map(snapshotCell),
+    };
+
     changedCells.forEach((cell) => {
       if (cell.notes.has(digit)) {
         cell.notes.delete(digit);
@@ -580,15 +592,46 @@ function applyDigitToSelection(digit, forcePencil = false) {
     return;
   }
 
+  const actionCells = new Map();
+  changedCells.forEach((cell) => {
+    actionCells.set(`${cell.row}-${cell.column}`, snapshotCell(cell));
+  });
+
+  changedCells.forEach((cell) => {
+    boxPeerCells(cell).forEach((peer) => {
+      if (!peer.fixed && peer.value === 0 && peer.notes.has(digit)) {
+        actionCells.set(`${peer.row}-${peer.column}`, snapshotCell(peer));
+      }
+    });
+  });
+
   changedCells.forEach((cell) => {
     setCellValue(cell, digit);
   });
-  pushHistory(action);
+
+  let clearedPeerNotes = 0;
+  changedCells.forEach((cell) => {
+    boxPeerCells(cell).forEach((peer) => {
+      if (!peer.fixed && peer.value === 0 && peer.notes.delete(digit)) {
+        clearedPeerNotes += 1;
+        syncCellDisplay(peer);
+      }
+    });
+  });
+
+  pushHistory({
+    label: `number ${digit}`,
+    highlightedValue,
+    cells: Array.from(actionCells.values()),
+  });
   highlightMatchingCells(digit);
   finalizeBatchSelection();
   updateBoardStatus();
-}
 
+  if (clearedPeerNotes > 0) {
+    updateStatus(`Placed ${digit} and removed matching pencil marks from ${clearedPeerNotes} box peer${clearedPeerNotes === 1 ? "" : "s"}.`);
+  }
+}
 function clearSelectedCells() {
   clearTransientHighlights();
   clearIncorrectStates();
