@@ -40,7 +40,7 @@
             <div class="number-pad-wrap">
               <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
               <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
-              <button id="auto-notes" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates" title="Fill pencil marks with valid candidates">
+              <button id="auto-notes" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for selected cells" title="Fill pencil marks with valid candidates for selected cells">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <rect x="4" y="4" width="16" height="16" rx="2"></rect>
                   <circle cx="9" cy="9" r="1.2"></circle>
@@ -48,6 +48,18 @@
                   <circle cx="11.5" cy="15" r="1.2"></circle>
                 </svg>
                 <span>Auto notes</span>
+              </button>
+              <button id="auto-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for all empty cells" title="Fill pencil marks with valid candidates for all empty cells">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <rect x="3.5" y="3.5" width="17" height="17" rx="2"></rect>
+                  <path d="M8 8h8"></path>
+                  <path d="M8 12h8"></path>
+                  <path d="M8 16h8"></path>
+                  <circle cx="6.2" cy="8" r="0.9"></circle>
+                  <circle cx="6.2" cy="12" r="0.9"></circle>
+                  <circle cx="6.2" cy="16" r="0.9"></circle>
+                </svg>
+                <span>All notes</span>
               </button>
               <button id="undo-action" class="clear-button control-muted" type="button">Undo</button>
               <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
@@ -77,6 +89,7 @@
     <script src="/static/app.js" defer></script>
   </body>
 </html>
+
 
 
 

@@ -90,7 +90,8 @@ body {
 .pad-button,
 #toggle-pencil,
 #undo-action,
-#auto-notes {
+#auto-notes,
+#auto-notes-all {
   font: inherit;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -104,7 +105,8 @@ body {
 .pad-button,
 #toggle-pencil,
 #undo-action,
-#auto-notes {
+#auto-notes,
+#auto-notes-all {
   cursor: pointer;
   background: var(--accent);
   border-color: var(--accent);
@@ -115,7 +117,8 @@ body {
 .clear-button.control-muted,
 #toggle-pencil.control-muted,
 #undo-action.control-muted,
-#auto-notes.control-muted {
+#auto-notes.control-muted,
+#auto-notes-all.control-muted {
   background: transparent;
   color: var(--accent-strong);
 }
@@ -298,7 +301,8 @@ body {
 .clear-button,
 #toggle-pencil,
 #undo-action,
-#auto-notes {
+#auto-notes,
+#auto-notes-all {
   width: 100%;
 }
 
@@ -488,6 +492,8 @@ body {
     width: 100%;
   }
 }
+
+
 
 
 

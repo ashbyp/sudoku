@@ -8,6 +8,7 @@ const showIncorrectButton = document.querySelector("#show-incorrect");
 const togglePencilButton = document.querySelector("#toggle-pencil");
 const solveBoardButton = document.querySelector("#solve-board");
 const autoNotesButton = document.querySelector("#auto-notes");
+const autoNotesAllButton = document.querySelector("#auto-notes-all");
 const undoActionButton = document.querySelector("#undo-action");
 const clearCellButton = document.querySelector("#clear-cell");
 const completionBurstElement = document.querySelector("#completion-burst");
@@ -279,6 +280,37 @@ function candidateDigitsForCell(cell, board) {
   return Array.from({ length: 9 }, (_, index) => index + 1).filter((digit) => !blocked.has(digit));
 }
 
+function applyAutoNotes(targetCells, options) {
+  const board = currentBoard();
+  const changedCells = targetCells.filter((cell) => {
+    const candidates = candidateDigitsForCell(cell, board);
+    const currentNotes = [...cell.notes].sort((a, b) => a - b);
+    return candidates.length !== currentNotes.length || candidates.some((digit, index) => digit !== currentNotes[index]);
+  });
+
+  if (!changedCells.length) {
+    updateStatus(options.noChangeMessage);
+    return;
+  }
+
+  pushHistory({
+    label: options.historyLabel,
+    highlightedValue,
+    cells: changedCells.map(snapshotCell),
+  });
+
+  changedCells.forEach((cell) => {
+    cell.notes = new Set(candidateDigitsForCell(cell, board));
+    syncCellDisplay(cell);
+  });
+
+  refreshMatchHighlights();
+  if (options.clearSelection) {
+    finalizeBatchSelection();
+  }
+  updateStatus(options.successMessage(changedCells.length));
+}
+
 function fillAutoNotes() {
   clearTransientHighlights();
 
@@ -298,34 +330,55 @@ function fillAutoNotes() {
     return;
   }
 
+  applyAutoNotes(editableCells, {
+    historyLabel: "auto notes",
+    clearSelection: true,
+    noChangeMessage: "Selected cells already show the current possible pencil marks.",
+    successMessage: (count) => `Auto notes added for ${count} cell${count === 1 ? "" : "s"}.`,
+  });
+}
+
+function fillAllAutoNotes() {
+  clearTransientHighlights();
+
+  const editableCells = cells.filter((cell) => !cell.fixed);
+  if (!editableCells.length) {
+    updateStatus("There are no editable cells on the board.");
+    return;
+  }
+
   const board = currentBoard();
   const changedCells = editableCells.filter((cell) => {
+    if (cell.value !== 0) {
+      return cell.notes.size > 0;
+    }
+
     const candidates = candidateDigitsForCell(cell, board);
     const currentNotes = [...cell.notes].sort((a, b) => a - b);
     return candidates.length !== currentNotes.length || candidates.some((digit, index) => digit !== currentNotes[index]);
   });
 
-  if (!changedCells.length) {
-    updateStatus("Selected cells already show the current possible pencil marks.");
-    return;
+  if (changedCells.length) {
+    pushHistory({
+      label: "all auto notes",
+      highlightedValue,
+      cells: changedCells.map(snapshotCell),
+    });
   }
 
-  pushHistory({
-    label: "auto notes",
-    highlightedValue,
-    cells: changedCells.map(snapshotCell),
-  });
-
-  changedCells.forEach((cell) => {
-    cell.notes = new Set(candidateDigitsForCell(cell, board));
+  editableCells.forEach((cell) => {
+    cell.notes.clear();
+    if (cell.value === 0) {
+      cell.notes = new Set(candidateDigitsForCell(cell, board));
+    }
     syncCellDisplay(cell);
   });
 
   refreshMatchHighlights();
   finalizeBatchSelection();
-  updateStatus(`Auto notes added for ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
+  const emptyCells = editableCells.filter((cell) => cell.value === 0).length;
+  updateStatus(`All notes rebuilt for ${emptyCells} empty cell${emptyCells === 1 ? "" : "s"}.`);
 }
-
 function updateLiveValidation() {
   clearInvalidStates();
 
@@ -551,49 +604,44 @@ function clearSelectedCells() {
     return;
   }
 
-  if (pencilMode) {
-    const changedCells = editableCells.filter((cell) => cell.value === 0 && cell.notes.size > 0);
-    if (!changedCells.length) {
-      updateStatus("There are no pencil marks to clear in the selected cells.");
-      return;
-    }
-
-    pushHistory({
-      label: "pencil marks",
-      highlightedValue,
-      cells: changedCells.map(snapshotCell),
-    });
-
-    changedCells.forEach((cell) => {
-      cell.notes.clear();
-      syncCellDisplay(cell);
-    });
-    refreshMatchHighlights();
-    finalizeBatchSelection();
-    updateStatus(`Pencil marks cleared for ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
-    return;
-  }
-
-  const changedCells = editableCells.filter((cell) => cell.value !== 0);
+  const changedCells = editableCells.filter((cell) => cell.value !== 0 || cell.notes.size > 0);
   if (!changedCells.length) {
-    updateStatus("There are no values to clear in the selected cells.");
+    updateStatus("There is nothing to clear in the selected cells.");
     return;
   }
+
+  const clearedValues = changedCells.filter((cell) => cell.value !== 0).length;
+  const clearedNotes = changedCells.length - clearedValues;
 
   pushHistory({
-    label: "cell values",
+    label: "cell contents",
     highlightedValue,
     cells: changedCells.map(snapshotCell),
   });
 
   changedCells.forEach((cell) => {
-    clearCellValue(cell);
+    if (cell.value !== 0) {
+      clearCellValue(cell);
+      return;
+    }
+
+    cell.notes.clear();
+    syncCellDisplay(cell);
   });
   refreshMatchHighlights();
   finalizeBatchSelection();
   updateBoardStatus();
-}
 
+  if (clearedValues > 0 && clearedNotes > 0) {
+    updateStatus(`Cleared ${clearedValues} value${clearedValues === 1 ? "" : "s"} and ${clearedNotes} set${clearedNotes === 1 ? "" : "s"} of pencil marks.`);
+    return;
+  }
+  if (clearedValues > 0) {
+    updateStatus(`Cleared ${clearedValues} value${clearedValues === 1 ? "" : "s"}.`);
+    return;
+  }
+  updateStatus(`Cleared pencil marks for ${clearedNotes} cell${clearedNotes === 1 ? "" : "s"}.`);
+}
 function buildEditableCell(rowIndex, columnIndex, value) {
   const container = document.createElement("div");
   container.className = "cell";
@@ -802,22 +850,40 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-togglePencilButton.addEventListener("click", () => {
-  clearTransientHighlights();
-  pencilMode = !pencilMode;
-  updatePencilButton();
-  if (pencilMode) {
-    updateStatus("Pencil mode is on.");
-  }
-});
-
-autoNotesButton.addEventListener("click", fillAutoNotes);
-undoActionButton.addEventListener("click", undoLastAction);
-clearCellButton.addEventListener("click", clearSelectedCells);
-newGameButton.addEventListener("click", loadPuzzle);
-resetBoardButton.addEventListener("click", resetBoard);
-showIncorrectButton.addEventListener("click", showIncorrectNumbers);
-solveBoardButton.addEventListener("click", solveBoard);
+if (togglePencilButton) {
+  togglePencilButton.addEventListener("click", () => {
+    clearTransientHighlights();
+    pencilMode = !pencilMode;
+    updatePencilButton();
+    if (pencilMode) {
+      updateStatus("Pencil mode is on.");
+    }
+  });
+}
+if (autoNotesButton) {
+  autoNotesButton.addEventListener("click", fillAutoNotes);
+}
+if (autoNotesAllButton) {
+  autoNotesAllButton.addEventListener("click", fillAllAutoNotes);
+}
+if (undoActionButton) {
+  undoActionButton.addEventListener("click", undoLastAction);
+}
+if (clearCellButton) {
+  clearCellButton.addEventListener("click", clearSelectedCells);
+}
+if (newGameButton) {
+  newGameButton.addEventListener("click", loadPuzzle);
+}
+if (resetBoardButton) {
+  resetBoardButton.addEventListener("click", resetBoard);
+}
+if (showIncorrectButton) {
+  showIncorrectButton.addEventListener("click", showIncorrectNumbers);
+}
+if (solveBoardButton) {
+  solveBoardButton.addEventListener("click", solveBoard);
+}
 if (dismissCompletionButton) {
   dismissCompletionButton.addEventListener("click", clearCompletionCelebration);
 }
@@ -838,6 +904,11 @@ updatePencilButton();
 loadPuzzle().catch(() => {
   updateStatus("Could not load the puzzle.");
 });
+
+
+
+
+
 
 
 
