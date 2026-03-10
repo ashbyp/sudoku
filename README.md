@@ -27,22 +27,6 @@ uvicorn app.main:app --reload
 
 4. Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-## Deploy to Render
-
-This repo includes a `render.yaml` blueprint for a free Render web service.
-
-1. Push this repo to GitHub.
-2. In Render, choose `New +` -> `Blueprint`.
-3. Connect the GitHub repo.
-4. Render will read `render.yaml` and create the web service.
-5. Deploy, then open the generated `onrender.com` URL.
-
-If you prefer to create the service manually, use these settings:
-
-- Environment: `Python`
-- Build command: `pip install .`
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-
 ## Project layout
 
 - `src/app/main.py`: FastAPI routes and static file hosting

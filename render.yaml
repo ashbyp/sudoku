@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: sudoku-app
-    runtime: python
-    plan: free
-    buildCommand: pip install .
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    autoDeploy: true
