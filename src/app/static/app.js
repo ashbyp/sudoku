@@ -96,10 +96,9 @@ function clearIncorrectStates() {
 }
 
 function clearMatchHighlights() {
-  cells.forEach((cell) => cell.container.classList.remove("match"));
   highlightedValue = null;
+  applyMatchHighlights(null);
 }
-
 function clearAxisHighlights() {
   cells.forEach((cell) => cell.container.classList.remove("axis-highlight"));
 }
