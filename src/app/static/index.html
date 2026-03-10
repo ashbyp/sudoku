@@ -8,71 +8,98 @@
   </head>
   <body>
     <main class="page">
-      <section class="hero">
-        
-        <h1>Sudoku</h1>
-        <p class="subtitle">
-          Start a puzzle, fill the grid, and let the app tell you when the board is clean or solved.
-        </p>
+      <div id="user-badge" class="user-badge hidden" aria-live="polite">
+        <span id="user-badge-text"></span>
+        <button id="user-logout" type="button">Sign out</button>
+      </div>
+
+      <section id="auth-section" class="auth" aria-label="Account">
+        <div class="auth-panel">
+          <div class="auth-fields">
+            <label class="auth-field">
+              <span>Email</span>
+              <input id="auth-email" type="email" autocomplete="username" />
+            </label>
+            <label class="auth-field">
+              <span>Password</span>
+              <input id="auth-password" type="password" autocomplete="current-password" />
+            </label>
+          </div>
+          <div class="auth-actions">
+            <button id="auth-register" type="button">Create account</button>
+            <button id="auth-login" type="button" class="control-muted">Sign in</button>
+            <button id="auth-logout" type="button" class="control-muted hidden">Sign out</button>
+          </div>
+          <p id="auth-status" class="auth-status">Not signed in.</p>
+        </div>
       </section>
 
-      <section class="controls">
-        <div class="control-group control-group-field">
-          <label for="difficulty">Difficulty</label>
-          <select id="difficulty">
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-        </div>
-        <div class="control-group control-group-actions">
-          <button id="new-game" type="button">New game</button>
-          <button id="reset-board" type="button">Reset board</button>
-          <button id="show-incorrect" type="button">Show incorrect</button>
-          <button id="solve-board" type="button">Solve board</button>
-        </div>
-      </section>
+      <div id="game-shell" class="hidden">
+        <section class="hero">
+          <h1>Sudoku</h1>
+          <p class="subtitle">
+            Start a puzzle, fill the grid, and let the app tell you when the board is clean or solved.
+          </p>
+        </section>
 
-      <section class="game">
-        <div id="board" class="board" aria-label="Sudoku board"></div>
-        <aside class="side-panel">
-          <div class="panel tool-panel">
-            <div class="number-pad-wrap">
-              <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
-              <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
-              <button id="auto-notes" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for selected cells" title="Fill pencil marks with valid candidates for selected cells">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
-                  <circle cx="9" cy="9" r="1.2"></circle>
-                  <circle cx="15" cy="11.5" r="1.2"></circle>
-                  <circle cx="11.5" cy="15" r="1.2"></circle>
-                </svg>
-                <span>Auto notes</span>
-              </button>
-              <button id="auto-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for all empty cells" title="Fill pencil marks with valid candidates for all empty cells">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <rect x="3.5" y="3.5" width="17" height="17" rx="2"></rect>
-                  <path d="M8 8h8"></path>
-                  <path d="M8 12h8"></path>
-                  <path d="M8 16h8"></path>
-                  <circle cx="6.2" cy="8" r="0.9"></circle>
-                  <circle cx="6.2" cy="12" r="0.9"></circle>
-                  <circle cx="6.2" cy="16" r="0.9"></circle>
-                </svg>
-                <span>All notes</span>
-              </button>
-              <button id="undo-action" class="clear-button control-muted" type="button">Undo</button>
-              <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
+        <section class="controls">
+          <div class="control-group control-group-field">
+            <label for="difficulty">Difficulty</label>
+            <select id="difficulty">
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div class="control-group control-group-actions">
+            <button id="new-game" type="button">New game</button>
+            <button id="reset-board" type="button">Reset board</button>
+            <button id="show-incorrect" type="button">Show incorrect</button>
+            <button id="solve-board" type="button">Solve board</button>
+          </div>
+        </section>
+
+        <section class="game">
+          <div id="board" class="board" aria-label="Sudoku board"></div>
+          <aside class="side-panel">
+            <div class="panel tool-panel">
+              <div class="number-pad-wrap">
+                <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
+                <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
+                <button id="auto-notes" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for selected cells" title="Fill pencil marks with valid candidates for selected cells">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                    <circle cx="9" cy="9" r="1.2"></circle>
+                    <circle cx="15" cy="11.5" r="1.2"></circle>
+                    <circle cx="11.5" cy="15" r="1.2"></circle>
+                  </svg>
+                  <span>Auto notes</span>
+                </button>
+                <button id="auto-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for all empty cells" title="Fill pencil marks with valid candidates for all empty cells">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="3.5" y="3.5" width="17" height="17" rx="2"></rect>
+                    <path d="M8 8h8"></path>
+                    <path d="M8 12h8"></path>
+                    <path d="M8 16h8"></path>
+                    <circle cx="6.2" cy="8" r="0.9"></circle>
+                    <circle cx="6.2" cy="12" r="0.9"></circle>
+                    <circle cx="6.2" cy="16" r="0.9"></circle>
+                  </svg>
+                  <span>All notes</span>
+                </button>
+                <button id="undo-action" class="clear-button control-muted" type="button">Undo</button>
+                <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
+              </div>
             </div>
-          </div>
-          <div class="panel status-panel">
-            <p id="status-message">Loading puzzle...</p>
-            <p class="hint">
-              Click a cell, then choose a number from the pad. In pencil mode, clicking an existing note removes it.
-            </p>
-          </div>
-        </aside>
-      </section>
+            <div class="panel status-panel">
+              <p id="status-message">Loading puzzle...</p>
+              <p class="hint">
+                Click a cell, then choose a number from the pad. In pencil mode, clicking an existing note removes it.
+              </p>
+            </div>
+          </aside>
+        </section>
+      </div>
     </main>
 
       <div id="completion-burst" class="completion-burst" aria-hidden="true">
@@ -89,8 +116,3 @@
     <script src="/static/app.js" defer></script>
   </body>
 </html>
-
-
-
-
-

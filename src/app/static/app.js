@@ -14,6 +14,17 @@ const clearCellButton = document.querySelector("#clear-cell");
 const completionBurstElement = document.querySelector("#completion-burst");
 const confettiFieldElement = document.querySelector("#confetti-field");
 const dismissCompletionButton = document.querySelector("#dismiss-completion");
+const authEmailInput = document.querySelector("#auth-email");
+const authPasswordInput = document.querySelector("#auth-password");
+const authRegisterButton = document.querySelector("#auth-register");
+const authLoginButton = document.querySelector("#auth-login");
+const authLogoutButton = document.querySelector("#auth-logout");
+const authSection = document.querySelector("#auth-section");
+const gameShell = document.querySelector("#game-shell");
+const userBadgeElement = document.querySelector("#user-badge");
+const userBadgeText = document.querySelector("#user-badge-text");
+const userLogoutButton = document.querySelector("#user-logout");
+const authStatusElement = document.querySelector("#auth-status");
 
 let puzzle = [];
 let solution = [];
@@ -462,6 +473,149 @@ function updateLiveValidation() {
   return invalidPositions.size === 0;
 }
 
+let currentUser = null;
+
+function setAuthStatus(message, isError = false) {
+  if (!authStatusElement) {
+    return;
+  }
+  authStatusElement.textContent = message;
+  authStatusElement.classList.toggle("error", isError);
+}
+
+function updateAuthUI() {
+  if (!authEmailInput || !authPasswordInput || !authRegisterButton || !authLoginButton || !authLogoutButton) {
+    return;
+  }
+
+  const signedIn = Boolean(currentUser);
+  authEmailInput.disabled = signedIn;
+  authPasswordInput.disabled = signedIn;
+  authRegisterButton.classList.toggle("hidden", signedIn);
+  authLoginButton.classList.toggle("hidden", signedIn);
+  authLogoutButton.classList.toggle("hidden", !signedIn);
+
+  if (authSection) {
+    authSection.classList.toggle("hidden", signedIn);
+  }
+  if (gameShell) {
+    gameShell.classList.toggle("hidden", !signedIn);
+  }
+  if (userBadgeElement) {
+    userBadgeElement.classList.toggle("hidden", !signedIn);
+  }
+  if (userBadgeText) {
+    userBadgeText.textContent = signedIn && currentUser ? `Signed in as ${currentUser.email}` : "";
+  }
+}
+async function refreshCurrentUser() {
+  if (!authStatusElement) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/me", { credentials: "include" });
+    if (!response.ok) {
+      currentUser = null;
+      setAuthStatus("Not signed in.");
+      updateAuthUI();
+      return;
+    }
+
+    currentUser = await response.json();
+    setAuthStatus(`Signed in as ${currentUser.email}.`);
+    updateAuthUI();
+  } catch (error) {
+    currentUser = null;
+    setAuthStatus("Auth service unavailable.", true);
+    updateAuthUI();
+  }
+}
+
+async function handleRegister() {
+  if (!authEmailInput || !authPasswordInput) {
+    return;
+  }
+
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+  if (!email || !password) {
+    setAuthStatus("Enter email and password.", true);
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setAuthStatus(body.detail ?? "Registration failed.", true);
+      return;
+    }
+
+    currentUser = await response.json();
+    authPasswordInput.value = "";
+    setAuthStatus(`Signed in as ${currentUser.email}.`);
+    updateAuthUI();
+  } catch (error) {
+    setAuthStatus("Registration failed.", true);
+  }
+}
+
+async function handleLogin() {
+  if (!authEmailInput || !authPasswordInput) {
+    return;
+  }
+
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+  if (!email || !password) {
+    setAuthStatus("Enter email and password.", true);
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setAuthStatus(body.detail ?? "Login failed.", true);
+      return;
+    }
+
+    currentUser = await response.json();
+    authPasswordInput.value = "";
+    setAuthStatus(`Signed in as ${currentUser.email}.`);
+    updateAuthUI();
+  } catch (error) {
+    setAuthStatus("Login failed.", true);
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetch("/api/logout", { method: "POST", credentials: "include" });
+  } catch (error) {
+    // Ignore logout errors.
+  }
+
+  currentUser = null;
+  if (authPasswordInput) {
+    authPasswordInput.value = "";
+  }
+  setAuthStatus("Not signed in.");
+  updateAuthUI();
+}
 function updateStatus(message) {
   statusMessageElement.textContent = message;
 }
@@ -948,6 +1102,31 @@ if (showIncorrectButton) {
 if (solveBoardButton) {
   solveBoardButton.addEventListener("click", solveBoard);
 }
+if (authRegisterButton) {
+  authRegisterButton.addEventListener("click", handleRegister);
+}
+if (authLoginButton) {
+  authLoginButton.addEventListener("click", handleLogin);
+}
+if (userLogoutButton) {
+  userLogoutButton.addEventListener("click", handleLogout);
+}if (authLogoutButton) {
+  authLogoutButton.addEventListener("click", handleLogout);
+}
+if (authEmailInput) {
+  authEmailInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      handleLogin();
+    }
+  });
+}
+if (authPasswordInput) {
+  authPasswordInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      handleLogin();
+    }
+  });
+}
 if (dismissCompletionButton) {
   dismissCompletionButton.addEventListener("click", clearCompletionCelebration);
 }
@@ -965,6 +1144,7 @@ if (confettiFieldElement) {
 
 renderNumberPad();
 updatePencilButton();
+refreshCurrentUser();
 loadPuzzle().catch(() => {
   updateStatus("Could not load the puzzle.");
 });
