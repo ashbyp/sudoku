@@ -104,21 +104,24 @@ function clearAxisHighlights() {
 }
 
 function clearSelection() {
-  cells.forEach((cell) => cell.container.classList.remove("selected"));
+  cells.forEach((cell) => {
+    cell.container.classList.remove("selected");
+    cell.container.setAttribute("aria-selected", "false");
+  });
   selectedCells = new Set();
   activeCell = null;
 }
-
 function clearTransientHighlights() {
   clearAxisHighlights();
 }
 
 function refreshSelectionStyles() {
   cells.forEach((cell) => {
-    cell.container.classList.toggle("selected", selectedCells.has(cell));
+    const selected = selectedCells.has(cell);
+    cell.container.classList.toggle("selected", selected);
+    cell.container.setAttribute("aria-selected", selected ? "true" : "false");
   });
 }
-
 function updatePencilButton() {
   togglePencilButton.textContent = `Pencil mode: ${pencilMode ? "On" : "Off"}`;
   togglePencilButton.classList.toggle("control-active", pencilMode);
@@ -700,6 +703,8 @@ function clearSelectedCells() {
 function buildEditableCell(rowIndex, columnIndex, value) {
   const container = document.createElement("div");
   container.className = "cell";
+  container.setAttribute("role", "gridcell");
+  container.setAttribute("aria-selected", "false");
 
   if ((columnIndex + 1) % 3 === 0 && columnIndex < 8) {
     container.classList.add("box-right");
@@ -712,14 +717,17 @@ function buildEditableCell(rowIndex, columnIndex, value) {
   input.className = "cell-input";
   input.type = "text";
   input.inputMode = "none";
+  input.setAttribute("role", "textbox");
   input.tabIndex = 0;
   input.dataset.row = String(rowIndex);
   input.dataset.column = String(columnIndex);
   input.autocomplete = "off";
+  input.setAttribute("aria-label", "Row " + (rowIndex + 1) + ", Column " + (columnIndex + 1));
 
   const notesElement = document.createElement("div");
   notesElement.className = "notes";
   notesElement.setAttribute("aria-hidden", "true");
+  notesElement.setAttribute("aria-label", "Pencil marks");
 
   const noteElements = Array.from({ length: 9 }, (_, index) => {
     const note = document.createElement("span");
@@ -815,7 +823,6 @@ function buildEditableCell(rowIndex, columnIndex, value) {
 
   return cell;
 }
-
 function renderNumberPad() {
   numberPadElement.innerHTML = "";
   padButtons = new Map();
@@ -837,6 +844,8 @@ function renderNumberPad() {
 
 function renderBoard(grid) {
   boardElement.innerHTML = "";
+  boardElement.setAttribute("role", "grid");
+  boardElement.setAttribute("aria-label", "Sudoku board");
   cells = [];
   selectedCells = new Set();
   activeCell = null;
