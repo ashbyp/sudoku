@@ -257,6 +257,14 @@ body {
   opacity: 1;
 }
 
+.note.visible.match-note {
+  color: var(--accent-strong);
+  font-weight: 700;
+  background: rgba(204, 90, 45, 0.18);
+  border-radius: 999px;
+  padding: 2px 4px;
+}
+
 .panel {
   display: grid;
   gap: 14px;
