@@ -56,7 +56,7 @@ function systemTheme() {
 function storedTheme() {
   try {
     const value = window.localStorage?.getItem(THEME_STORAGE_KEY);
-    if (value === "light" || value === "dark") {
+    if (["light", "dark", "mental"].includes(value)) {
       return value;
     }
   } catch (error) {
@@ -74,7 +74,8 @@ function setStoredTheme(theme) {
 }
 
 function applyTheme(theme) {
-  const resolved = theme === "dark" ? "dark" : "light";
+  const valid = ["light", "dark", "mental"];
+  const resolved = valid.includes(theme) ? theme : "light";
   document.documentElement.dataset.theme = resolved;
   if (themeToggleButton) {
     themeToggleButton.textContent = `Theme: ${resolved[0].toUpperCase()}${resolved.slice(1)}`;
@@ -1534,8 +1535,9 @@ if (typeof window.matchMedia === "function") {
 
 if (themeToggleButton) {
   themeToggleButton.addEventListener("click", () => {
-    const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-    const next = current === "dark" ? "light" : "dark";
+    const current = document.documentElement.dataset.theme || "light";
+    const order = ["light", "dark", "mental"];
+    const next = order[(order.indexOf(current) + 1) % order.length];
     setStoredTheme(next);
     applyTheme(next);
   });

@@ -52,6 +52,33 @@
   --surface-border: rgba(255, 245, 235, 0.14);
 }
 
+:root[data-theme="mental"] {
+  color-scheme: light;
+  --bg: #0d102b;
+  --bg-top: #ff7ee2;
+  --top-glow: rgba(255, 255, 255, 0.4);
+  --panel: linear-gradient(145deg, #ffe66d 0%, #ff90c2 40%, #7df1ff 100%);
+  --line: #120d2c;
+  --soft-line: #2c215e;
+  --accent: #ff3b30;
+  --accent-strong: #13ff87;
+  --text: #0f0c1f;
+  --muted: #1b1540;
+  --fixed: #ffe9fd;
+  --selection-ring: #13ff87;
+  --axis-fill: rgba(19, 255, 135, 0.12);
+  --axis-fill-fixed: rgba(19, 255, 135, 0.2);
+  --match-fill: rgba(255, 59, 48, 0.2);
+  --match-fill-fixed: rgba(255, 59, 48, 0.3);
+  --invalid-fill: rgba(255, 0, 148, 0.3);
+  --invalid-fill-fixed: rgba(255, 0, 148, 0.25);
+  --celebration-gold: #ff3b30;
+  --celebration-ink: #0f0c1f;
+  --panel-frost: rgba(255, 255, 255, 0.92);
+  --badge-frost: rgba(255, 255, 255, 0.86);
+  --surface-border: rgba(15, 12, 31, 0.32);
+}
+
 * {
   box-sizing: border-box;
 }
