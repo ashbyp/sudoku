@@ -780,3 +780,156 @@ def generate_vicious_puzzle(rng: Random | None = None) -> tuple[Grid, Grid]:
             puzzle[r][c] = backup
 
     return puzzle, solution
+
+
+def generate_evil_puzzle(rng: Random | None = None) -> tuple[Grid, Grid]:
+    rng = rng or Random()
+
+    # Harder: allow a bit more time and require heavier x-wing/advanced steps.
+    time_budget_s = 14.0
+    max_attempts = 800
+    max_clues = 24
+    min_clues = 19
+
+    start = perf_counter()
+    deadline = start + time_budget_s
+
+    best_score = -10**18
+    best_puzzle: Grid | None = None
+    best_solution: Grid | None = None
+
+    for _ in range(max_attempts):
+        if perf_counter() > deadline:
+            break
+
+        solution = generate_solution(rng)
+        puzzle = _copy_grid(solution)
+
+        pairs: list[tuple[tuple[int, int], tuple[int, int]]] = []
+        seen: set[tuple[int, int]] = set()
+        for r in range(9):
+            for c in range(9):
+                if (r, c) in seen:
+                    continue
+                rr, cc = _sym(r, c)
+                seen.add((r, c))
+                seen.add((rr, cc))
+                pairs.append(((r, c), (rr, cc)))
+        rng.shuffle(pairs)
+
+        for (a_r, a_c), (b_r, b_c) in pairs:
+            if perf_counter() > deadline:
+                break
+            if _clue_count(puzzle) <= max_clues:
+                break
+
+            backup_a = puzzle[a_r][a_c]
+            backup_b = puzzle[b_r][b_c]
+            puzzle[a_r][a_c] = 0
+            puzzle[b_r][b_c] = 0
+
+            if not _is_unique(puzzle, deadline=deadline):
+                puzzle[a_r][a_c] = backup_a
+                puzzle[b_r][b_c] = backup_b
+
+        clues = _clue_count(puzzle)
+        if clues > max_clues:
+            continue
+
+        for _tweak in range(90):
+            if perf_counter() > deadline:
+                break
+            if _clue_count(puzzle) <= min_clues:
+                break
+
+            cand = _build_candidate_map(puzzle)
+            naked = [(pos, opts) for pos, opts in cand.items() if len(opts) == 1]
+            if not naked:
+                break
+
+            (sr, sc), _opts = naked[0]
+            peer_clues = [(r, c) for (r, c) in _peers_of(sr, sc) if puzzle[r][c] != 0]
+            if not peer_clues:
+                break
+
+            r, c = rng.choice(peer_clues)
+            rr, cc = _sym(r, c)
+            if puzzle[r][c] == 0 and puzzle[rr][cc] == 0:
+                continue
+
+            backup1 = puzzle[r][c]
+            backup2 = puzzle[rr][cc]
+            puzzle[r][c] = 0
+            puzzle[rr][cc] = 0
+
+            if not _is_unique(puzzle, deadline=deadline):
+                puzzle[r][c] = backup1
+                puzzle[rr][cc] = backup2
+
+        cand = _build_candidate_map(puzzle)
+        naked_singles = _count_naked_singles(cand)
+        hidden_singles = _count_hidden_singles(puzzle, cand)
+
+        clues = _clue_count(puzzle)
+        if clues > max_clues:
+            continue
+
+        basic_stats = solve_basic(puzzle, deadline=deadline)
+        basic_solved = basic_stats.solved
+        basic_progress = basic_stats.steps_singles + basic_stats.steps_hidden_singles
+
+        stats = solve_with_techniques(puzzle, deadline=deadline)
+
+        candidate_score = (
+            (stats.score if stats.solved else -1000) * 10000
+            + (stats.advanced_steps if stats.solved else 0) * 2400
+            - (naked_singles * 5000)
+            - (hidden_singles * 2600)
+            - (900000 if basic_solved else 0)
+            - (basic_progress * 1100)
+            - (clues * 30)
+        )
+        if candidate_score > best_score:
+            best_score = candidate_score
+            best_puzzle = _copy_grid(puzzle)
+            best_solution = _copy_grid(solution)
+
+        # Evil acceptance: must lean on x-wings.
+        if naked_singles != 0 or hidden_singles != 0:
+            continue
+        if basic_solved:
+            continue
+        if basic_progress >= 16:
+            continue
+        if not stats.solved:
+            continue
+        if stats.advanced_steps < 16:
+            continue
+        if stats.steps_xwing < 2:
+            continue
+        if stats.steps_hidden_pairs < 2:
+            continue
+        if stats.score < 260:
+            continue
+
+        return puzzle, solution
+
+    if best_puzzle is not None and best_solution is not None:
+        return best_puzzle, best_solution
+
+    # As a last resort, return any unique puzzle under the clue cap.
+    rescue_deadline = perf_counter() + 2.0
+    solution = generate_solution(rng)
+    puzzle = _copy_grid(solution)
+    positions = [(r, c) for r in range(9) for c in range(9)]
+    rng.shuffle(positions)
+
+    for r, c in positions:
+        if _clue_count(puzzle) <= max_clues:
+            break
+        backup = puzzle[r][c]
+        puzzle[r][c] = 0
+        if not _is_unique(puzzle, deadline=rescue_deadline):
+            puzzle[r][c] = backup
+
+    return puzzle, solution

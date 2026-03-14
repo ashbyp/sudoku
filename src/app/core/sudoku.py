@@ -100,6 +100,10 @@ def generate_puzzle(
         from app.core.sudoku_vicious import generate_vicious_puzzle
 
         return generate_vicious_puzzle(rng)
+    if difficulty.lower() == "evil":
+        from app.core.sudoku_vicious import generate_evil_puzzle
+
+        return generate_evil_puzzle(rng)
 
     removals = DIFFICULTY_REMOVALS.get(
         difficulty.lower(), DIFFICULTY_REMOVALS["easy"]
