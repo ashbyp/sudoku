@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = BASE_DIR / "data"
-DB_PATH = DATA_DIR / "app.db"
 
+# Vercel serverless functions run on a read-only filesystem, except for /tmp.
+# Use /tmp for SQLite storage when deployed there.
+if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+    DATA_DIR = Path(os.getenv("SQLITE_DIR", "/tmp"))
+else:
+    DATA_DIR = BASE_DIR / "data"
+
+DB_PATH = DATA_DIR / "app.db"
 
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
