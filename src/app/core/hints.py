@@ -16,7 +16,7 @@ from app.core.sudoku_vicious import UNITS, _box_index, _build_candidate_map
 
 
 def _coord(r: int, c: int) -> str:
-    return f"R{r + 1}C{c + 1}"
+    return f"Row {r + 1}, Column {c + 1}"
 
 
 def get_hint(board: Grid) -> dict[str, object]:
@@ -81,8 +81,8 @@ def get_hint(board: Grid) -> dict[str, object]:
                     r, c = positions[0]
                     return {
                         "message": (
-                            f"Locked candidate: in box {box_idx + 1}, {d} is confined to row {row + 1}. "
-                            f"That means you can remove {d} from other cells in row {row + 1}."
+                            f"Locked candidate: in box {box_idx + 1}, candidate {d} only appears in row {row + 1}. "
+                            f"So you can remove {d} from the other cells in row {row + 1}."
                         ),
                         "highlights": (
                             [{"row": r, "column": c, "kind": "focus"}]
@@ -102,8 +102,8 @@ def get_hint(board: Grid) -> dict[str, object]:
                     r, c = positions[0]
                     return {
                         "message": (
-                            f"Locked candidate: in box {box_idx + 1}, {d} is confined to column {col + 1}. "
-                            f"That means you can remove {d} from other cells in column {col + 1}."
+                            f"Locked candidate: in box {box_idx + 1}, candidate {d} only appears in column {col + 1}. "
+                            f"So you can remove {d} from the other cells in column {col + 1}."
                         ),
                         "highlights": (
                             [{"row": r, "column": c, "kind": "focus"}]
@@ -134,7 +134,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                     unit_label = f"{unit_name} {idx + 1}"
                     return {
                         "message": (
-                            f"Claiming: in {unit_label}, candidates for {d} all sit inside box {box_idx + 1}. "
+                            f"Claiming: in {unit_label}, candidate {d} only appears inside box {box_idx + 1}. "
                             f"So you can remove {d} from the other cells in that box."
                         ),
                         "highlights": (
@@ -171,7 +171,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                     return {
                         "message": (
                             f"Naked pair: in {unit_label}, {_coord(r1, c1)} and {_coord(r2, c2)} are the pair "
-                            f"{{{d1}, {d2}}}. You can remove {d1}/{d2} from other cells in that unit."
+                            f"{{{d1}, {d2}}}. You can remove {d1}/{d2} from the other cells in that unit."
                         ),
                         "highlights": (
                             [{"row": r1, "column": c1, "kind": "focus"}, {"row": r2, "column": c2, "kind": "focus"}]
@@ -184,9 +184,8 @@ def get_hint(board: Grid) -> dict[str, object]:
         (r, c), opts = min(cand.items(), key=lambda item: (len(item[1]), item[0][0], item[0][1]))
         digits = ", ".join(str(d) for d in sorted(opts))
         return {
-            "message": f"No simple forced move found. Consider {_coord(r, c)} (candidates: {digits}).",
+            "message": f"No simple forced move found. Consider {_coord(r, c)}. Candidates: {digits}.",
             "highlights": [{"row": r, "column": c, "kind": "focus"}],
         }
 
     return {"message": "No hints available.", "highlights": []}
-
