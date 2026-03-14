@@ -148,9 +148,6 @@ def _build_candidate_map_with_notes(board: Grid, notes: list[list[list[int]]] | 
 
 def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[str, object]:
     cand = _build_candidate_map_with_notes(board, notes)
-    xwing_hint = _solve_xwing_hint(cand)
-    if xwing_hint:
-        return xwing_hint
 
     # Contradiction check.
     dead = [(r, c) for (r, c), opts in cand.items() if len(opts) == 0]
@@ -330,6 +327,11 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                     }
 
     #  last attempt: x-wing after all simpler techniques
+    xwing_hint = _solve_xwing_hint(cand)
+    if xwing_hint:
+        return xwing_hint
+
+    # 9) X-wing, last ditch.
     xwing_hint = _solve_xwing_hint(cand)
     if xwing_hint:
         return xwing_hint
