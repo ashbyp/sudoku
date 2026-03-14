@@ -98,6 +98,41 @@ body {
   min-height: 2.8em;
 }
 
+.status-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hint-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(95, 84, 71, 0.22);
+  background: transparent;
+  color: var(--accent-strong);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hint-button:hover {
+  background: rgba(204, 90, 45, 0.08);
+  border-color: rgba(204, 90, 45, 0.28);
+}
+
+.hint-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
 .controls {
   display: grid;
   gap: 8px;

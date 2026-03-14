@@ -109,7 +109,14 @@
                   </svg>
                   <span>Clear notes</span>
                 </button>
-                <button id="hint" class="clear-button control-muted icon-button" type="button" aria-label="Get a hint" title="Get a hint for the next step">
+                <button id="undo-action" class="clear-button control-muted" type="button">Undo</button>
+                <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
+              </div>
+            </div>
+            <div class="panel status-panel">
+              <div class="status-header">
+                <p id="status-message">Loading puzzle...</p>
+                <button id="hint" class="hint-button" type="button" aria-label="Get a hint" title="Get a hint for the next step">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 3a7 7 0 0 0-4.3 12.5c.9.7 1.3 1.3 1.3 2.3V19h6v-1.2c0-1 .4-1.6 1.3-2.3A7 7 0 0 0 12 3z"></path>
                     <path d="M9.5 22h5"></path>
@@ -117,12 +124,7 @@
                   </svg>
                   <span>Hint</span>
                 </button>
-                <button id="undo-action" class="clear-button control-muted" type="button">Undo</button>
-                <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
               </div>
-            </div>
-            <div class="panel status-panel">
-              <p id="status-message">Loading puzzle...</p>
               <p class="hint">
                 Click a cell, then choose a number from the pad. In pencil mode, clicking an existing note removes it.
               </p>
