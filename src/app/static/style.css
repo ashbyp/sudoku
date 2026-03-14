@@ -108,9 +108,11 @@ body {
 #auto-notes,
 #auto-notes-all {
   cursor: pointer;
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
+  background: rgba(204, 90, 45, 0.1);
+  border-color: rgba(95, 84, 71, 0.26);
+  color: var(--accent-strong);
+  box-shadow: 0 10px 18px rgba(68, 43, 23, 0.06);
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 80ms ease;
 }
 
 .controls button.control-muted,
@@ -121,6 +123,8 @@ body {
 #auto-notes-all.control-muted {
   background: transparent;
   color: var(--accent-strong);
+  border-color: rgba(95, 84, 71, 0.22);
+  box-shadow: none;
 }
 
 .controls button.control-active,
@@ -128,6 +132,54 @@ body {
   background: var(--accent-strong);
   border-color: var(--accent-strong);
   color: white;
+}
+
+.controls button:hover,
+.clear-button:hover,
+.pad-button:hover,
+#toggle-pencil:hover,
+#undo-action:hover,
+#auto-notes:hover,
+#auto-notes-all:hover {
+  background: rgba(204, 90, 45, 0.16);
+  border-color: rgba(204, 90, 45, 0.32);
+}
+
+.controls button.control-muted:hover,
+.clear-button.control-muted:hover,
+#toggle-pencil.control-muted:hover,
+#undo-action.control-muted:hover,
+#auto-notes.control-muted:hover,
+#auto-notes-all.control-muted:hover {
+  background: rgba(204, 90, 45, 0.08);
+  border-color: rgba(95, 84, 71, 0.26);
+}
+
+.controls button:active,
+.clear-button:active,
+.pad-button:active,
+#toggle-pencil:active,
+#undo-action:active,
+#auto-notes:active,
+#auto-notes-all:active {
+  transform: translateY(1px);
+}
+
+.controls button {
+  padding: 9px 14px;
+  letter-spacing: 0.01em;
+}
+
+#new-game {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 14px 22px rgba(143, 52, 16, 0.18);
+}
+
+#new-game:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 .game {
@@ -377,6 +429,10 @@ body {
   border-radius: 14px;
   padding: 10px 0;
   font-size: 0.95rem;
+  background: rgba(255, 250, 243, 0.9);
+  border-color: rgba(95, 84, 71, 0.22);
+  color: var(--accent-strong);
+  box-shadow: 0 12px 18px rgba(68, 43, 23, 0.08);
 }
 
 .pad-button:disabled {
