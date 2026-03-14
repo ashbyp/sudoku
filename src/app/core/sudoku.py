@@ -96,6 +96,10 @@ def generate_puzzle(
     difficulty: str = "easy", rng: Random | None = None
 ) -> tuple[Grid, Grid]:
     rng = rng or Random()
+    if difficulty.lower() == "vicious":
+        from app.core.sudoku_vicious import generate_vicious_puzzle
+
+        return generate_vicious_puzzle(rng)
 
     removals = DIFFICULTY_REMOVALS.get(
         difficulty.lower(), DIFFICULTY_REMOVALS["easy"]

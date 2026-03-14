@@ -10,6 +10,7 @@ const togglePencilButton = document.querySelector("#toggle-pencil");
 const solveBoardButton = document.querySelector("#solve-board");
 const autoNotesButton = document.querySelector("#auto-notes");
 const autoNotesAllButton = document.querySelector("#auto-notes-all");
+const clearNotesAllButton = document.querySelector("#clear-notes-all");
 const undoActionButton = document.querySelector("#undo-action");
 const clearCellButton = document.querySelector("#clear-cell");
 const completionBurstElement = document.querySelector("#completion-burst");
@@ -430,6 +431,37 @@ function fillAllAutoNotes() {
   finalizeBatchSelection();
   const emptyCells = editableCells.filter((cell) => cell.value === 0).length;
   updateStatus(`All notes rebuilt for ${emptyCells} empty cell${emptyCells === 1 ? "" : "s"}.`);
+}
+
+function clearAllNotes() {
+  clearTransientHighlights();
+
+  const editableCells = cells.filter((cell) => !cell.fixed);
+  if (!editableCells.length) {
+    updateStatus("There are no editable cells on the board.");
+    return;
+  }
+
+  const changedCells = editableCells.filter((cell) => cell.notes.size > 0);
+  if (!changedCells.length) {
+    updateStatus("There are no notes to clear.");
+    return;
+  }
+
+  pushHistory({
+    label: "clear notes",
+    highlightedValue,
+    cells: changedCells.map(snapshotCell),
+  });
+
+  changedCells.forEach((cell) => {
+    cell.notes.clear();
+    syncCellDisplay(cell);
+  });
+
+  refreshMatchHighlights();
+  finalizeBatchSelection();
+  updateStatus(`Cleared notes from ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
 }
 function updateLiveValidation() {
   clearInvalidStates();
@@ -1219,6 +1251,9 @@ if (autoNotesButton) {
 }
 if (autoNotesAllButton) {
   autoNotesAllButton.addEventListener("click", fillAllAutoNotes);
+}
+if (clearNotesAllButton) {
+  clearNotesAllButton.addEventListener("click", clearAllNotes);
 }
 if (undoActionButton) {
   undoActionButton.addEventListener("click", undoLastAction);
