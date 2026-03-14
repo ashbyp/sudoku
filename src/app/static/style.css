@@ -23,6 +23,7 @@
   --panel-frost: rgba(255, 250, 243, 0.85);
   --badge-frost: rgba(255, 250, 243, 0.92);
   --surface-border: rgba(95, 84, 71, 0.2);
+  --board-digit: var(--text);
 }
 
 :root[data-theme="dark"] {
@@ -104,6 +105,7 @@
   --panel-frost: rgba(255, 255, 255, 0.92);
   --badge-frost: rgba(255, 255, 255, 0.86);
   --surface-border: rgba(11, 5, 20, 0.35);
+  --board-digit: #fff8d2;
 }
 
 * {
@@ -461,7 +463,8 @@ body.celebration-bg::after {
   padding: 0;
   background: transparent;
   text-align: center;
-  color: var(--text);
+  color: var(--board-digit);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   font-size: clamp(1.1rem, 2vw, 1.8rem);
   caret-color: transparent;
 }
