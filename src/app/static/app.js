@@ -123,6 +123,11 @@ function buildConfettiBurst(count = 80) {
     spark.style.setProperty("--spark-delay", `${Math.random() * 0.4}s`);
     confettiFieldElement.appendChild(spark);
   }
+
+  // Flash/explosion
+  const boom = document.createElement("div");
+  boom.className = "celebration-boom";
+  confettiFieldElement.appendChild(boom);
 }
 
 function triggerCompletionCelebration() {

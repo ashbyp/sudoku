@@ -728,6 +728,15 @@ body.celebration-bg::after {
   transform: translateX(var(--spark-x, 0px));
 }
 
+.celebration-boom {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.1) 35%, transparent 55%);
+  mix-blend-mode: screen;
+  animation: boom-flash 0.9s ease-out forwards;
+}
+
 @keyframes celebration-card {
   0% {
     transform: translateY(20px) scale(0.94);
@@ -789,6 +798,21 @@ body.celebration-bg::after {
   100% {
     filter: hue-rotate(180deg);
     opacity: 0.45;
+  }
+}
+
+@keyframes boom-flash {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  40% {
+    transform: scale(1.08);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0;
   }
 }
 
