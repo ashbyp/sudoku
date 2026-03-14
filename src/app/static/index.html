@@ -66,6 +66,14 @@
               <div class="number-pad-wrap">
                 <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
                 <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
+                <div id="highlight-palette" class="highlight-palette" role="group" aria-label="Cell highlight palette">
+                  <button type="button" class="highlight-swatch" data-mark="amber" aria-label="Highlight selected cells amber" title="Highlight amber"></button>
+                  <button type="button" class="highlight-swatch" data-mark="sage" aria-label="Highlight selected cells green" title="Highlight green"></button>
+                  <button type="button" class="highlight-swatch" data-mark="sky" aria-label="Highlight selected cells blue" title="Highlight blue"></button>
+                  <button type="button" class="highlight-swatch" data-mark="rose" aria-label="Highlight selected cells pink" title="Highlight pink"></button>
+                  <button type="button" class="highlight-swatch highlight-clear-all" data-mark="clear-all" aria-label="Clear all highlights" title="Clear all highlights">C</button>
+                  <button type="button" class="highlight-swatch highlight-clear" data-mark="none" aria-label="Remove highlight from selected cells" title="Remove highlight">×</button>
+                </div>
                 <button id="auto-notes" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for selected cells" title="Fill pencil marks with valid candidates for selected cells">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <rect x="4" y="4" width="16" height="16" rx="2"></rect>
@@ -73,7 +81,7 @@
                     <circle cx="15" cy="11.5" r="1.2"></circle>
                     <circle cx="11.5" cy="15" r="1.2"></circle>
                   </svg>
-                  <span>Auto notes</span>
+                  <span>Cell notes</span>
                 </button>
                 <button id="auto-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for all empty cells" title="Fill pencil marks with valid candidates for all empty cells">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

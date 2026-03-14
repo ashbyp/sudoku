@@ -1,5 +1,6 @@
 const boardElement = document.querySelector("#board");
 const numberPadElement = document.querySelector("#number-pad");
+const highlightPaletteElement = document.querySelector("#highlight-palette");
 const difficultyElement = document.querySelector("#difficulty");
 const statusMessageElement = document.querySelector("#status-message");
 const newGameButton = document.querySelector("#new-game");
@@ -37,9 +38,14 @@ let historyStack = [];
 let padButtons = new Map();
 
 let hasCelebratedCompletion = false;
+let isLoadingPuzzle = false;
 
 function cloneGrid(grid) {
   return grid.map((row) => [...row]);
+}
+
+function blankGrid() {
+  return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => 0));
 }
 
 function clearCompletionCelebration() {
@@ -77,17 +83,25 @@ function snapshotCell(cell) {
     column: cell.column,
     value: cell.value,
     notes: [...cell.notes],
+    mark: cell.mark ?? null,
   };
 }
 
 function restoreCell(snapshot) {
   const cell = cells[snapshot.row * 9 + snapshot.column];
-  if (!cell || cell.fixed) {
+  if (!cell) {
     return;
   }
 
-  cell.value = snapshot.value;
-  cell.notes = new Set(snapshot.notes);
+  if (!cell.fixed) {
+    cell.value = snapshot.value;
+    cell.notes = new Set(snapshot.notes ?? []);
+  }
+
+  if ("mark" in snapshot) {
+    setCellMark(cell, snapshot.mark ?? null);
+  }
+
   syncCellDisplay(cell);
 }
 
@@ -364,15 +378,15 @@ function fillAutoNotes() {
   }
 
   if (editableCells.some((cell) => cell.value !== 0)) {
-    updateStatus("Auto notes only works on empty cells or cells that only contain pencil marks.");
+    updateStatus("Cell notes only works on empty cells or cells that only contain pencil marks.");
     return;
   }
 
   applyAutoNotes(editableCells, {
-    historyLabel: "auto notes",
+    historyLabel: "cell notes",
     clearSelection: true,
     noChangeMessage: "Selected cells already show the current possible pencil marks.",
-    successMessage: (count) => `Auto notes added for ${count} cell${count === 1 ? "" : "s"}.`,
+    successMessage: (count) => `Cell notes added for ${count} cell${count === 1 ? "" : "s"}.`,
   });
 }
 
@@ -398,7 +412,7 @@ function fillAllAutoNotes() {
 
   if (changedCells.length) {
     pushHistory({
-      label: "all auto notes",
+      label: "all notes",
       highlightedValue,
       cells: changedCells.map(snapshotCell),
     });
@@ -525,6 +539,7 @@ async function refreshCurrentUser() {
     currentUser = await response.json();
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
+    loadPuzzle();
   } catch (error) {
     currentUser = null;
     setAuthStatus("Auth service unavailable.", true);
@@ -562,6 +577,7 @@ async function handleRegister() {
     authPasswordInput.value = "";
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
+    loadPuzzle();
   } catch (error) {
     setAuthStatus("Registration failed.", true);
   }
@@ -597,6 +613,7 @@ async function handleLogin() {
     authPasswordInput.value = "";
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
+    loadPuzzle();
   } catch (error) {
     setAuthStatus("Login failed.", true);
   }
@@ -642,6 +659,64 @@ function showIncorrectNumbers() {
 
 function selectedEditableCells() {
   return Array.from(selectedCells).filter((cell) => !cell.fixed);
+}
+
+function setCellMark(cell, mark) {
+  cell.mark = mark;
+  if (!mark) {
+    cell.container.removeAttribute("data-mark");
+    return;
+  }
+
+  cell.container.dataset.mark = mark;
+}
+
+function applyCellMark(mark) {
+  if (selectedCells.size === 0) {
+    updateStatus("Select one or more cells first.");
+    return;
+  }
+
+  const normalized = mark ?? null;
+  const targets = Array.from(selectedCells);
+  const changed = targets.filter((cell) => (cell.mark ?? null) !== normalized);
+
+  if (!changed.length) {
+    updateStatus(normalized ? "Selected cells already have that highlight." : "Selected cells have no highlight to clear.");
+    return;
+  }
+
+  pushHistory({
+    label: normalized ? "highlight" : "remove highlight",
+    highlightedValue,
+    cells: changed.map(snapshotCell),
+  });
+
+  changed.forEach((cell) => setCellMark(cell, normalized));
+
+  if (!normalized) {
+    updateStatus("Removed highlight from " + changed.length + " cell" + (changed.length === 1 ? "" : "s") + ".");
+    return;
+  }
+
+  updateStatus("Highlighted " + changed.length + " cell" + (changed.length === 1 ? "" : "s") + ".");
+}
+
+function clearAllCellMarks() {
+  const marked = cells.filter((cell) => Boolean(cell.mark));
+  if (!marked.length) {
+    updateStatus("No highlights to clear.");
+    return;
+  }
+
+  pushHistory({
+    label: "clear highlights",
+    highlightedValue,
+    cells: marked.map(snapshotCell),
+  });
+
+  marked.forEach((cell) => setCellMark(cell, null));
+  updateStatus("Cleared highlights from " + marked.length + " cell" + (marked.length === 1 ? "" : "s") + ".");
 }
 
 function selectCell(cell, appendSelection = false) {
@@ -897,6 +972,7 @@ function buildEditableCell(rowIndex, columnIndex, value) {
     value,
     fixed: value !== 0,
     notes: new Set(),
+    mark: null,
     container,
     input,
     notesElement,
@@ -1027,9 +1103,28 @@ function solveBoard() {
 }
 
 async function loadPuzzle() {
+  if (isLoadingPuzzle) {
+    return;
+  }
+
+  isLoadingPuzzle = true;
+  const previousNewGameLabel = newGameButton ? newGameButton.textContent : null;
+
+  if (newGameButton) {
+    newGameButton.disabled = true;
+    newGameButton.classList.add("loading");
+    newGameButton.textContent = "Generating...";
+  }
+  if (difficultyElement) {
+    difficultyElement.disabled = true;
+  }
+  if (boardElement) {
+    boardElement.setAttribute("aria-busy", "true");
+  }
+
   clearCompletionCelebration();
   hasCelebratedCompletion = false;
-  updateStatus("Loading puzzle...");
+  updateStatus("Generating puzzle...");
   clearInvalidStates();
   clearIncorrectStates();
   clearMatchHighlights();
@@ -1037,15 +1132,56 @@ async function loadPuzzle() {
   clearSelection();
   historyStack = [];
 
-  const response = await fetch(`/api/puzzle?difficulty=${difficultyElement.value}`);
-  const data = await response.json();
+  try {
+    const response = await fetch(`/api/puzzle?difficulty=${difficultyElement.value}`, {
+      headers: { "Accept": "application/json" },
+    });
 
-  puzzle = cloneGrid(data.puzzle);
-  solution = cloneGrid(data.solution);
-  renderBoard(puzzle);
-  updateStatus(`New ${data.difficulty} puzzle ready. Select a cell to begin. Hold Ctrl to select multiple cells.`);
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const body = await response.json();
+        detail = body?.detail ? ` (${body.detail})` : "";
+      } catch (error) {
+        const text = await response.text().catch(() => "");
+        detail = text ? ` (${text.slice(0, 120)})` : "";
+      }
+
+      updateStatus(`Could not load the puzzle (HTTP ${response.status}).${detail}`);
+      return;
+    }
+
+    const data = await response.json();
+
+    if (!data || !Array.isArray(data.puzzle) || data.puzzle.length !== 9) {
+      updateStatus("Could not load the puzzle (unexpected response).");
+      return;
+    }
+
+    puzzle = cloneGrid(data.puzzle);
+    solution = cloneGrid(data.solution);
+    renderBoard(puzzle);
+    updateStatus(`New ${data.difficulty} puzzle ready. Select a cell to begin. Hold Ctrl to select multiple cells.`);
+  } catch (error) {
+    updateStatus(`Could not load the puzzle (${error?.message ?? "network error"}).`);
+  } finally {
+    isLoadingPuzzle = false;
+
+    if (newGameButton) {
+      newGameButton.disabled = false;
+      newGameButton.classList.remove("loading");
+      if (previousNewGameLabel != null) {
+        newGameButton.textContent = previousNewGameLabel;
+      }
+    }
+    if (difficultyElement) {
+      difficultyElement.disabled = false;
+    }
+    if (boardElement) {
+      boardElement.removeAttribute("aria-busy");
+    }
+  }
 }
-
 document.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof Element)) {
@@ -1090,6 +1226,26 @@ if (undoActionButton) {
 if (clearCellButton) {
   clearCellButton.addEventListener("click", clearSelectedCells);
 }
+if (highlightPaletteElement) {
+  highlightPaletteElement.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) {
+      return;
+    }
+    if (!target.classList.contains("highlight-swatch")) {
+      return;
+    }
+
+    const mark = target.dataset.mark;
+    if (mark === "clear-all") {
+      clearAllCellMarks();
+      return;
+    }
+
+    applyCellMark(mark === "none" ? null : mark);
+  });
+}
+
 if (newGameButton) {
   newGameButton.addEventListener("click", loadPuzzle);
 }
@@ -1110,7 +1266,8 @@ if (authLoginButton) {
 }
 if (userLogoutButton) {
   userLogoutButton.addEventListener("click", handleLogout);
-}if (authLogoutButton) {
+}
+if (authLogoutButton) {
   authLogoutButton.addEventListener("click", handleLogout);
 }
 if (authEmailInput) {
@@ -1144,9 +1301,11 @@ if (confettiFieldElement) {
 
 renderNumberPad();
 updatePencilButton();
-refreshCurrentUser();
-loadPuzzle().catch(() => {
-  updateStatus("Could not load the puzzle.");
+renderBoard(blankGrid());
+refreshCurrentUser().finally(() => {
+  if (currentUser) {
+    loadPuzzle();
+  }
 });
 
 

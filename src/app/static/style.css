@@ -160,6 +160,37 @@ body {
   background: transparent;
 }
 
+.cell[data-mark]::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 10px;
+  background: var(--cell-mark);
+  opacity: 0.38;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cell[data-mark="amber"] {
+  --cell-mark: rgba(242, 176, 75, 0.55);
+}
+
+.cell[data-mark="sage"] {
+  --cell-mark: rgba(128, 176, 120, 0.5);
+}
+
+.cell[data-mark="sky"] {
+  --cell-mark: rgba(102, 168, 220, 0.5);
+}
+
+.cell[data-mark="rose"] {
+  --cell-mark: rgba(228, 120, 147, 0.48);
+}
+
+.cell .notes,
+.cell .cell-input {
+  z-index: 1;
+}
 .cell.fixed {
   background: var(--fixed);
 }
@@ -295,6 +326,53 @@ body {
   gap: 8px;
 }
 
+.highlight-palette {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  padding: 2px 0 8px;
+}
+
+.highlight-swatch {
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(95, 84, 71, 0.28);
+  background: var(--swatch, transparent);
+  box-shadow: 0 12px 18px rgba(68, 43, 23, 0.09);
+}
+
+.highlight-swatch[data-mark="amber"] {
+  --swatch: #f2b04b;
+}
+
+.highlight-swatch[data-mark="sage"] {
+  --swatch: #76b56f;
+}
+
+.highlight-swatch[data-mark="sky"] {
+  --swatch: #5aa9e6;
+}
+
+.highlight-swatch[data-mark="rose"] {
+  --swatch: #e47893;
+}
+
+.highlight-swatch.highlight-clear-all {
+  --swatch: rgba(255, 250, 243, 0.92);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.highlight-swatch.highlight-clear {
+  --swatch: rgba(255, 250, 243, 0.92);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.highlight-swatch:focus-visible {
+  outline: 2px solid var(--selection-ring);
+  outline-offset: 2px;
+}
 .pad-button {
   border-radius: 14px;
   padding: 10px 0;
