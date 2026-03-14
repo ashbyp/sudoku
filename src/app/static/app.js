@@ -56,7 +56,7 @@ function systemTheme() {
 function storedTheme() {
   try {
     const value = window.localStorage?.getItem(THEME_STORAGE_KEY);
-    if (["light", "dark", "mental"].includes(value)) {
+    if (["light", "dark", "mental", "jazzy"].includes(value)) {
       return value;
     }
   } catch (error) {
@@ -74,7 +74,7 @@ function setStoredTheme(theme) {
 }
 
 function applyTheme(theme) {
-  const valid = ["light", "dark", "mental"];
+  const valid = ["light", "dark", "mental", "jazzy"];
   const resolved = valid.includes(theme) ? theme : "light";
   document.documentElement.dataset.theme = resolved;
   if (themeToggleButton) {
@@ -1570,7 +1570,7 @@ if (typeof window.matchMedia === "function") {
 if (themeToggleButton) {
   themeToggleButton.addEventListener("click", () => {
     const current = document.documentElement.dataset.theme || "light";
-    const order = ["light", "dark", "mental"];
+    const order = ["light", "dark", "mental", "jazzy"];
     const next = order[(order.indexOf(current) + 1) % order.length];
     setStoredTheme(next);
     applyTheme(next);

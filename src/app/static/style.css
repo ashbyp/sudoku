@@ -79,6 +79,33 @@
   --surface-border: rgba(15, 12, 31, 0.32);
 }
 
+:root[data-theme="jazzy"] {
+  color-scheme: light;
+  --bg: #0b0514;
+  --bg-top: #ff0590;
+  --top-glow: rgba(255, 5, 144, 0.4);
+  --panel: linear-gradient(135deg, #ffdd41 0%, #ff6ec4 45%, #7138ff 100%);
+  --line: #1a0c26;
+  --soft-line: rgba(255, 255, 255, 0.3);
+  --accent: #22ffd0;
+  --accent-strong: #fff176;
+  --text: #0a040f;
+  --muted: #2d113d;
+  --fixed: rgba(255, 255, 255, 0.3);
+  --selection-ring: #22ffd0;
+  --axis-fill: rgba(34, 255, 208, 0.15);
+  --axis-fill-fixed: rgba(34, 255, 208, 0.25);
+  --match-fill: rgba(255, 255, 255, 0.25);
+  --match-fill-fixed: rgba(255, 255, 255, 0.2);
+  --invalid-fill: rgba(255, 28, 114, 0.3);
+  --invalid-fill-fixed: rgba(255, 28, 114, 0.25);
+  --celebration-gold: #ffe66d;
+  --celebration-ink: #0b0514;
+  --panel-frost: rgba(255, 255, 255, 0.92);
+  --badge-frost: rgba(255, 255, 255, 0.86);
+  --surface-border: rgba(11, 5, 20, 0.35);
+}
+
 * {
   box-sizing: border-box;
 }
