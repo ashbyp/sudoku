@@ -464,10 +464,7 @@ body.celebration-bg::after {
   background: transparent;
   text-align: center;
   color: var(--board-digit);
-  text-shadow:
-    0 0 4px rgba(255, 255, 255, 1),
-    0 0 10px rgba(255, 255, 255, 0.6),
-    0 3px 6px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 4px rgba(255, 255, 255, 1);
   font-size: clamp(1.1rem, 2vw, 1.8rem);
   caret-color: transparent;
 }
