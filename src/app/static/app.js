@@ -27,6 +27,9 @@ const userBadgeElement = document.querySelector("#user-badge");
 const userBadgeText = document.querySelector("#user-badge-text");
 const userLogoutButton = document.querySelector("#user-logout");
 const authStatusElement = document.querySelector("#auth-status");
+const themeToggleButton = document.querySelector("#theme-toggle");
+
+const THEME_STORAGE_KEY = "sudoku-theme";
 
 let puzzle = [];
 let solution = [];
@@ -40,6 +43,41 @@ let padButtons = new Map();
 
 let hasCelebratedCompletion = false;
 let isLoadingPuzzle = false;
+
+function systemTheme() {
+  if (typeof window.matchMedia !== "function") {
+    return "light";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function storedTheme() {
+  try {
+    const value = window.localStorage?.getItem(THEME_STORAGE_KEY);
+    if (value === "light" || value === "dark") {
+      return value;
+    }
+  } catch (error) {
+    // Ignore storage issues (private mode, blocked, etc).
+  }
+  return null;
+}
+
+function setStoredTheme(theme) {
+  try {
+    window.localStorage?.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    // Ignore storage issues.
+  }
+}
+
+function applyTheme(theme) {
+  const resolved = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = resolved;
+  if (themeToggleButton) {
+    themeToggleButton.textContent = `Theme: ${resolved[0].toUpperCase()}${resolved.slice(1)}`;
+  }
+}
 
 function cloneGrid(grid) {
   return grid.map((row) => [...row]);
@@ -1304,6 +1342,27 @@ if (userLogoutButton) {
 }
 if (authLogoutButton) {
   authLogoutButton.addEventListener("click", handleLogout);
+}
+
+// Theme: prefer stored override, otherwise follow the system setting.
+applyTheme(storedTheme() ?? systemTheme());
+
+if (typeof window.matchMedia === "function") {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener?.("change", () => {
+    if (storedTheme() == null) {
+      applyTheme(systemTheme());
+    }
+  });
+}
+
+if (themeToggleButton) {
+  themeToggleButton.addEventListener("click", () => {
+    const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    const next = current === "dark" ? "light" : "dark";
+    setStoredTheme(next);
+    applyTheme(next);
+  });
 }
 if (authEmailInput) {
   authEmailInput.addEventListener("keydown", (event) => {
