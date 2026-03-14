@@ -55,6 +55,11 @@ class BoardPayload(BaseModel):
     board: list[list[int]] = Field(min_length=9, max_length=9)
 
 
+class HintPayload(BoardPayload):
+    # Optional pencil marks grid (9x9). Each entry is a list of candidate digits shown in the UI.
+    notes: list[list[list[int]]] | None = None
+
+
 def get_current_user(request: Request) -> dict[str, object] | None:
     token = request.cookies.get("session")
     return get_user_by_session(token)
@@ -163,8 +168,8 @@ def check_board(payload: BoardPayload) -> dict[str, object]:
 
 
 @app.post("/api/hint")
-def hint(payload: BoardPayload) -> dict[str, object]:
-    return get_hint(payload.board)
+def hint(payload: HintPayload) -> dict[str, object]:
+    return get_hint(payload.board, payload.notes)
 
 
 @app.get("/health")

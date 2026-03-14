@@ -19,8 +19,42 @@ def _coord(r: int, c: int) -> str:
     return f"Row {r + 1}, Column {c + 1}"
 
 
-def get_hint(board: Grid) -> dict[str, object]:
-    cand = _build_candidate_map(board)
+def _notes_mask(notes: list[list[list[int]]] | None) -> dict[tuple[int, int], set[int]]:
+    if not notes or len(notes) != 9:
+        return {}
+    mask: dict[tuple[int, int], set[int]] = {}
+    for r, row in enumerate(notes):
+        if not isinstance(row, list) or len(row) != 9:
+            return {}
+        for c, entry in enumerate(row):
+            if not isinstance(entry, list):
+                return {}
+            digits = {int(d) for d in entry if isinstance(d, int) and 1 <= d <= 9}
+            mask[(r, c)] = digits
+    return mask
+
+
+def _build_candidate_map_with_notes(board: Grid, notes: list[list[list[int]]] | None) -> dict[tuple[int, int], set[int]]:
+    base = _build_candidate_map(board)
+    note_mask = _notes_mask(notes)
+
+    if not note_mask:
+        return base
+
+    # If the UI is already showing candidates, prefer that state so we don't repeat
+    # the same "remove candidate" hints after the player applies them.
+    adjusted: dict[tuple[int, int], set[int]] = {}
+    for pos, opts in base.items():
+        shown = note_mask.get(pos)
+        if shown:
+            adjusted[pos] = set(opts) & set(shown)
+        else:
+            adjusted[pos] = set(opts)
+    return adjusted
+
+
+def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[str, object]:
+    cand = _build_candidate_map_with_notes(board, notes)
 
     # Contradiction check.
     dead = [(r, c) for (r, c), opts in cand.items() if len(opts) == 0]

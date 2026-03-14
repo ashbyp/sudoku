@@ -118,6 +118,18 @@ function currentBoard() {
   ));
 }
 
+function currentNotes() {
+  return Array.from({ length: 9 }, (_, row) => (
+    Array.from({ length: 9 }, (_, column) => {
+      const cell = cells[row * 9 + column];
+      if (!cell || cell.value !== 0) {
+        return [];
+      }
+      return [...cell.notes].sort((a, b) => a - b);
+    })
+  ));
+}
+
 function snapshotCell(cell) {
   return {
     row: cell.row,
@@ -622,7 +634,7 @@ async function requestHint() {
     const response = await fetch("/api/hint", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ board: currentBoard() }),
+      body: JSON.stringify({ board: currentBoard(), notes: currentNotes() }),
     });
 
     if (!response.ok) {
