@@ -14,6 +14,98 @@ from app.core.sudoku import Grid
 # hints stay consistent with the generator.
 from app.core.sudoku_vicious import UNITS, _box_index, _build_candidate_map
 
+def _detect_xwing(cand: dict[tuple[int, int], set[int]]) -> dict[str, object] | None:
+    rows = {r: {} for r in range(9)}
+    cols = {c: {} for c in range(9)}
+
+    for (r, c), opts in cand.items():
+        for d in opts:
+            rows[r].setdefault(d, []).append(c)
+            cols[c].setdefault(d, []).append(r)
+
+    def pairs_for_digit(mapping):
+        return {
+            (line, tuple(sorted(cols)))
+            for line, digits in mapping.items()
+            for cols in (digits.get(2) and [])
+        }
+
+    def row_pairs(digit):
+        result = []
+        for r in range(9):
+            cols = rows[r].get(digit)
+            if cols and len(cols) == 2:
+                result.append((r, tuple(sorted(cols))))
+        return result
+
+    def col_pairs(digit):
+        result = []
+        for c in range(9):
+            rows_ = cols[c].get(digit)
+            if rows_ and len(rows_) == 2:
+                result.append((c, tuple(sorted(rows_))))
+        return result
+
+    for digit in range(1, 10):
+        row_pairs_list = row_pairs(digit)
+        for (r1, cs1), (r2, cs2) in combinations(row_pairs_list, 2):
+            if cs1 != cs2:
+                continue
+            c1, c2 = cs1
+            eliminate = []
+            for r in range(9):
+                if r in (r1, r2):
+                    continue
+                for c in cs1:
+                    if (r, c) in cand and digit in cand[(r, c)]:
+                        eliminate.append((r, c))
+            if eliminate:
+                message = (
+                    f"X-wing: digit {digit} occupies columns {c1 + 1} and {c2 + 1} on rows {r1 + 1} and {r2 + 1}. "
+                    "You can remove it from those columns elsewhere."
+                )
+                highlights = [{"row": r1, "column": c1, "kind": "focus"},
+                              {"row": r1, "column": c2, "kind": "focus"},
+                              {"row": r2, "column": c1, "kind": "focus"},
+                              {"row": r2, "column": c2, "kind": "focus"}]
+                eliminates = [{"row": r, "column": c, "kind": "elim"} for r, c in eliminate[:6]]
+                return {
+                    "message": message,
+                    "highlights": highlights + eliminates,
+                    "action": {"type": "note-remove", "digit": digit, "cells": eliminate},
+                }
+        col_pairs_list = col_pairs(digit)
+        for (c1, rs1), (c2, rs2) in combinations(col_pairs_list, 2):
+            if rs1 != rs2:
+                continue
+            r1, r2 = rs1
+            eliminate = []
+            for c in range(9):
+                if c in (c1, c2):
+                    continue
+                for r in rs1:
+                    if (r, c) in cand and digit in cand[(r, c)]:
+                        eliminate.append((r, c))
+            if eliminate:
+                message = (
+                    f"X-wing: digit {digit} occupies rows {r1 + 1} and {r2 + 1} on columns {c1 + 1} and {c2 + 1}. "
+                    "You can remove it from those rows elsewhere."
+                )
+                highlights = [{"row": r1, "column": c1, "kind": "focus"},
+                              {"row": r1, "column": c2, "kind": "focus"},
+                              {"row": r2, "column": c1, "kind": "focus"},
+                              {"row": r2, "column": c2, "kind": "focus"}]
+                eliminates = [{"row": r, "column": c, "kind": "elim"} for r, c in eliminate[:6]]
+                return {
+                    "message": message,
+                    "highlights": highlights + eliminates,
+                    "action": {"type": "note-remove", "digit": digit, "cells": eliminate},
+                }
+    return None
+
+def _solve_xwing_hint(cand: dict[tuple[int, int], set[int]]) -> dict[str, object] | None:
+    return _detect_xwing(cand)
+
 
 def _coord(r: int, c: int) -> str:
     return f"Row {r + 1}, Column {c + 1}"
@@ -55,6 +147,9 @@ def _build_candidate_map_with_notes(board: Grid, notes: list[list[list[int]]] | 
 
 def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[str, object]:
     cand = _build_candidate_map_with_notes(board, notes)
+    xwing_hint = _solve_xwing_hint(cand)
+    if xwing_hint:
+        return xwing_hint
 
     # Contradiction check.
     dead = [(r, c) for (r, c), opts in cand.items() if len(opts) == 0]
