@@ -93,6 +93,17 @@ body {
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 100%);
 }
 
+body.celebration-bg::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: conic-gradient(from 45deg, rgba(255, 61, 137, 0.35), rgba(19, 255, 135, 0.28), rgba(93, 162, 255, 0.3), rgba(255, 216, 94, 0.35), rgba(255, 61, 137, 0.35));
+  mix-blend-mode: screen;
+  animation: celebration-glow 2.4s linear infinite;
+  opacity: 0.5;
+}
+
 .page {
   position: relative;
   max-width: 1100px;
@@ -702,6 +713,21 @@ body {
   animation-delay: var(--piece-delay);
 }
 
+.spark {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 2px;
+  height: 26px;
+  background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0));
+  opacity: 0;
+  transform-origin: center;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+  animation: spark-pop 1.2s ease-out forwards;
+  animation-delay: var(--spark-delay, 0s);
+  transform: translateX(var(--spark-x, 0px));
+}
+
 @keyframes celebration-card {
   0% {
     transform: translateY(20px) scale(0.94);
@@ -733,6 +759,36 @@ body {
   100% {
     opacity: 0;
     transform: translate3d(var(--piece-x), 170px, 0) rotate(var(--piece-rotate)) scale(1);
+  }
+}
+
+@keyframes spark-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(var(--spark-x)) translateY(0) scaleY(0.4);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(var(--spark-x)) translateY(-12px) scaleY(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(var(--spark-x)) translateY(-60px) scaleY(0.6);
+  }
+}
+
+@keyframes celebration-glow {
+  0% {
+    filter: hue-rotate(0deg);
+    opacity: 0.45;
+  }
+  50% {
+    filter: hue-rotate(90deg);
+    opacity: 0.7;
+  }
+  100% {
+    filter: hue-rotate(180deg);
+    opacity: 0.45;
   }
 }
 

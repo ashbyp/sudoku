@@ -97,6 +97,32 @@ function clearCompletionCelebration() {
 
   completionBurstElement.classList.remove("active");
   completionBurstElement.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("celebration-bg");
+}
+
+function buildConfettiBurst(count = 80) {
+  if (!confettiFieldElement) {
+    return;
+  }
+  confettiFieldElement.innerHTML = "";
+  for (let index = 0; index < count; index += 1) {
+    const piece = document.createElement("span");
+    piece.className = "confetti-piece";
+    const x = -240 + Math.random() * 480;
+    const rotate = Math.floor(Math.random() * 360);
+    const delay = Math.random() * 0.6;
+    piece.style.setProperty("--piece-rotate", `${rotate}deg`);
+    piece.style.setProperty("--piece-x", `${x}px`);
+    piece.style.setProperty("--piece-delay", `${delay}s`);
+    confettiFieldElement.appendChild(piece);
+  }
+  for (let i = 0; i < 12; i += 1) {
+    const spark = document.createElement("span");
+    spark.className = "spark";
+    spark.style.setProperty("--spark-x", `${-120 + Math.random() * 240}px`);
+    spark.style.setProperty("--spark-delay", `${Math.random() * 0.4}s`);
+    confettiFieldElement.appendChild(spark);
+  }
 }
 
 function triggerCompletionCelebration() {
@@ -105,8 +131,11 @@ function triggerCompletionCelebration() {
   }
 
   clearCompletionCelebration();
+  buildConfettiBurst();
   completionBurstElement.classList.add("active");
   completionBurstElement.setAttribute("aria-hidden", "false");
+  document.body.classList.add("celebration-bg");
+  setTimeout(() => document.body.classList.remove("celebration-bg"), 2800);
 }
 
 function boardMatchesSolution() {
