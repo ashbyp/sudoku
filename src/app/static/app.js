@@ -1404,6 +1404,9 @@ document.addEventListener("click", (event) => {
   if (boardElement.contains(target) || numberPadElement.contains(target) || target.closest(".number-pad-wrap")) {
     return;
   }
+  if (target.closest(".status-panel")) {
+    return;
+  }
 
   clearSelection();
   clearMatchHighlights();
