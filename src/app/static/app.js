@@ -44,6 +44,7 @@ let padButtons = new Map();
 
 let hasCelebratedCompletion = false;
 let isLoadingPuzzle = false;
+let hintPencilDirective = null;
 
 function systemTheme() {
   if (typeof window.matchMedia !== "function") {
@@ -182,6 +183,7 @@ function clearSelection() {
   });
   selectedCells = new Set();
   activeCell = null;
+  hintPencilDirective = null;
 }
 function clearTransientHighlights() {
   clearAxisHighlights();
@@ -251,7 +253,7 @@ function applyHintAction(action) {
     return;
   }
 
-  if (type === "note-toggle") {
+  if (type === "note-remove") {
     const digit = Number(action.digit);
     if (!Number.isFinite(digit) || digit < 1 || digit > 9) {
       return;
@@ -261,6 +263,8 @@ function applyHintAction(action) {
       pencilMode = true;
       updatePencilButton();
     }
+
+    hintPencilDirective = { mode: "remove", digit };
 
     const targets = Array.isArray(action.cells) ? action.cells : [];
     const targetCells = targets.map((target) => {
@@ -1028,13 +1032,23 @@ function applyDigitToSelection(digit, forcePencil = false) {
   }
 
   if (usePencilMode) {
+    // If the most recent hint asked to remove a candidate, don't "toggle" it on.
+    const removeOnly = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
     const action = {
-      label: "pencil marks",
+      label: removeOnly ? "hint candidate removal" : "pencil marks",
       highlightedValue,
       cells: changedCells.map(snapshotCell),
     };
 
+    let removedCount = 0;
     changedCells.forEach((cell) => {
+      if (removeOnly) {
+        if (cell.notes.delete(digit)) {
+          removedCount += 1;
+        }
+        return;
+      }
+
       if (cell.notes.has(digit)) {
         cell.notes.delete(digit);
       } else {
@@ -1043,9 +1057,16 @@ function applyDigitToSelection(digit, forcePencil = false) {
       syncCellDisplay(cell);
     });
     pushHistory(action);
+    if (removeOnly) {
+      hintPencilDirective = null;
+    }
     refreshMatchHighlights();
     refreshSelectionStyles();
-    updateStatus(`Pencil mark ${digit} toggled for ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
+    updateStatus(
+      removeOnly
+        ? `Removed ${digit} from ${removedCount} cell${removedCount === 1 ? "" : "s"}.`
+        : `Pencil mark ${digit} toggled for ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`,
+    );
     return;
   }
 

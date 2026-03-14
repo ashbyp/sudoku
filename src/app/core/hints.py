@@ -64,7 +64,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                             + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
                         ),
                         "action": {
-                            "type": "note-toggle",
+                            "type": "note-remove",
                             "digit": d,
                             "cells": [{"row": rr, "column": cc} for rr, cc in eliminations],
                         },
@@ -90,7 +90,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                             + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
                         ),
                         "action": {
-                            "type": "note-toggle",
+                            "type": "note-remove",
                             "digit": d,
                             "cells": [{"row": rr, "column": cc} for rr, cc in eliminations],
                         },
@@ -127,7 +127,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                             + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
                         ),
                         "action": {
-                            "type": "note-toggle",
+                            "type": "note-remove",
                             "digit": d,
                             "cells": [{"row": rr, "column": cc} for rr, cc in eliminations],
                         },
