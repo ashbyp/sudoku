@@ -240,11 +240,6 @@ function applyHintAction(action) {
       return;
     }
 
-    if (pencilMode) {
-      pencilMode = false;
-      updatePencilButton();
-    }
-
     const cell = cells[row * 9 + column];
     if (!cell) {
       return;
@@ -257,11 +252,6 @@ function applyHintAction(action) {
     const digit = Number(action.digit);
     if (!Number.isFinite(digit) || digit < 1 || digit > 9) {
       return;
-    }
-
-    if (!pencilMode) {
-      pencilMode = true;
-      updatePencilButton();
     }
 
     hintPencilDirective = { mode: "remove", digit };
@@ -1262,7 +1252,9 @@ function buildEditableCell(rowIndex, columnIndex, value) {
 
     if (event.key >= "1" && event.key <= "9") {
       event.preventDefault();
-      applyDigitToSelection(Number(event.key));
+      const digit = Number(event.key);
+      const forcedByHint = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
+      applyDigitToSelection(digit, forcedByHint);
       return;
     }
 
@@ -1297,7 +1289,8 @@ function renderNumberPad() {
     button.className = "pad-button";
     button.textContent = String(digit);
     button.addEventListener("click", (event) => {
-      applyDigitToSelection(digit, event.ctrlKey || event.metaKey);
+      const forcedByHint = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
+      applyDigitToSelection(digit, forcedByHint || event.ctrlKey || event.metaKey);
     });
     numberPadElement.appendChild(button);
     padButtons.set(digit, button);
