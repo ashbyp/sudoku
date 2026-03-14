@@ -557,6 +557,55 @@ def solve_with_techniques(
     return SolveStats(False, steps_singles, steps_hidden, steps_locked, steps_np, steps_hp, steps_nt, steps_xw)
 
 
+def _requires_xwing(board: Grid, *, deadline: float | None = None) -> bool:
+    """Return True if the board cannot be solved without applying x-wing."""
+
+    board = _copy_grid(board)
+
+    for _ in range(12000):
+        if deadline is not None and perf_counter() > deadline:
+            return False
+
+        cand = _build_candidate_map(board)
+        if not cand:
+            return False
+
+        placed = _fill_from_singles(board, cand)
+        if placed:
+            continue
+
+        cand = _build_candidate_map(board)
+        placed = _apply_hidden_singles(board, cand)
+        if placed:
+            continue
+
+        cand = _build_candidate_map(board)
+        eliminated = _apply_locked_candidates(board, cand)
+        if eliminated:
+            steps = _fill_from_singles(board, cand)
+            if steps:
+                continue
+        cand = _build_candidate_map(board)
+        eliminated = _apply_naked_pairs(board, cand)
+        if eliminated:
+            _fill_from_singles(board, cand)
+            continue
+        cand = _build_candidate_map(board)
+        eliminated = _apply_hidden_pairs(board, cand)
+        if eliminated:
+            _fill_from_singles(board, cand)
+            continue
+        cand = _build_candidate_map(board)
+        eliminated = _apply_naked_triples(board, cand)
+        if eliminated:
+            _fill_from_singles(board, cand)
+            continue
+
+        return True
+
+    return True
+
+
 def solve_basic(board: Grid, *, deadline: float | None = None, step_limit: int = 20000) -> SolveStats:
     """A deliberately weaker "human basic" solver.
 
@@ -910,6 +959,8 @@ def generate_evil_puzzle(rng: Random | None = None) -> tuple[Grid, Grid]:
         if stats.steps_hidden_pairs < 2:
             continue
         if stats.score < 260:
+            continue
+        if not _requires_xwing(puzzle, deadline=deadline):
             continue
 
         return puzzle, solution
