@@ -1,4 +1,4 @@
-from app.core.hints import get_hint
+from app.core.hints import _solve_xwing_hint, get_hint
 
 
 def test_hint_prefers_singles():
@@ -11,17 +11,13 @@ def test_hint_prefers_singles():
     assert "Naked single" in hint["message"]
 
 
-def test_hint_xwing_trigger():
-    board = [[0] * 9 for _ in range(9)]
-    # Set pencil/filled so x-wing triggers
-    board[0][0] = 0
-    board[0][1] = 0
-    board[1][0] = 0
-    board[1][1] = 0
-    # Use notes to simulate x-wing pattern (two columns, rows 0,1)
-    notes = [
-        [[1, 4], [1, 4], [], [], [], [], [], [], []],
-        [[1, 4], [1, 4], [], [], [], [], [], [], []],
-    ] + [[[] for _ in range(9)] for _ in range(7)]
-    hint = get_hint(board, notes)
+def test_xwing_detector():
+    cand = {
+        (0, 0): {7},
+        (0, 3): {7},
+        (1, 0): {7},
+        (1, 3): {7},
+    }
+    hint = _solve_xwing_hint(cand)
+    assert hint is not None
     assert "X-wing" in hint["message"]
