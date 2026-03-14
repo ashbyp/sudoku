@@ -557,6 +557,52 @@ def solve_with_techniques(
     return SolveStats(False, steps_singles, steps_hidden, steps_locked, steps_np, steps_hp, steps_nt, steps_xw)
 
 
+def solve_basic(board: Grid, *, deadline: float | None = None, step_limit: int = 20000) -> SolveStats:
+    """A deliberately weaker "human basic" solver.
+
+    Used to filter out puzzles that become a straightforward chain after candidates
+    are shown:
+    - naked singles
+    - hidden singles
+    - locked candidates (pointing/claiming)
+    """
+    board = _copy_grid(board)
+
+    steps_singles = 0
+    steps_hidden = 0
+    steps_locked = 0
+
+    for _ in range(step_limit):
+        if deadline is not None and perf_counter() > deadline:
+            return SolveStats(False, steps_singles, steps_hidden, steps_locked, 0, 0, 0, 0)
+
+        cand = _build_candidate_map(board)
+        if not cand:
+            return SolveStats(True, steps_singles, steps_hidden, steps_locked, 0, 0, 0, 0)
+
+        placed = _fill_from_singles(board, cand)
+        if placed:
+            steps_singles += placed
+            continue
+
+        cand = _build_candidate_map(board)
+        placed = _apply_hidden_singles(board, cand)
+        if placed:
+            steps_hidden += placed
+            continue
+
+        cand = _build_candidate_map(board)
+        eliminated = _apply_locked_candidates(board, cand)
+        if eliminated:
+            steps_locked += 1
+            steps_singles += _fill_from_singles(board, cand)
+            continue
+
+        return SolveStats(False, steps_singles, steps_hidden, steps_locked, 0, 0, 0, 0)
+
+    return SolveStats(False, steps_singles, steps_hidden, steps_locked, 0, 0, 0, 0)
+
+
 def _clue_count(grid: Grid) -> int:
     return sum(1 for r in range(9) for c in range(9) if grid[r][c] != 0)
 
@@ -569,11 +615,11 @@ def generate_vicious_puzzle(rng: Random | None = None) -> tuple[Grid, Grid]:
     rng = rng or Random()
 
     # Keep generation bounded so the UI never spins for minutes.
-    time_budget_s = 8.0
+    time_budget_s = 12.0
     max_attempts = 600
 
     # We reject anything with more clues than this.
-    max_clues = 26
+    max_clues = 25
 
     # We may dig lower to eliminate singles, but we won't go below this.
     min_clues = 20
@@ -669,6 +715,11 @@ def generate_vicious_puzzle(rng: Random | None = None) -> tuple[Grid, Grid]:
         if clues > max_clues:
             continue
 
+        # Reject puzzles that basic techniques can plough through after candidates are shown.
+        basic_stats = solve_basic(puzzle, deadline=deadline)
+        basic_solved = basic_stats.solved
+        basic_progress = basic_stats.steps_singles + basic_stats.steps_hidden_singles
+
         stats = solve_with_techniques(puzzle, deadline=deadline)
 
         # Track best overall candidate (prefer: fewer singles, fewer clues, more advanced steps).
@@ -678,6 +729,8 @@ def generate_vicious_puzzle(rng: Random | None = None) -> tuple[Grid, Grid]:
             + (stats.advanced_steps if stats.solved else 0) * 2000
             - (naked_singles * 4000)
             - (hidden_singles * 2000)
+            - (800000 if basic_solved else 0)
+            - (basic_progress * 900)
             - (clues * 25)
         )
         if candidate_score > best_score:
@@ -688,17 +741,22 @@ def generate_vicious_puzzle(rng: Random | None = None) -> tuple[Grid, Grid]:
         # Strict acceptance for "vicious".
         if naked_singles != 0 or hidden_singles != 0:
             continue
+        if basic_solved:
+            continue
+        # If basic techniques make too much progress, it'll feel like a singles chain.
+        if basic_progress >= 18:
+            continue
         if not stats.solved:
             continue
 
         # Require meaningful eliminations.
-        if stats.advanced_steps < 8:
+        if stats.advanced_steps < 12:
             continue
-        if stats.steps_hidden_pairs < 1:
+        if stats.steps_hidden_pairs < 2:
             continue
-        if (stats.steps_naked_triples + stats.steps_xwing) < 1:
+        if stats.steps_xwing < 1:
             continue
-        if stats.score < 120:
+        if stats.score < 220:
             continue
 
         return puzzle, solution
