@@ -11,6 +11,7 @@ const solveBoardButton = document.querySelector("#solve-board");
 const autoNotesButton = document.querySelector("#auto-notes");
 const autoNotesAllButton = document.querySelector("#auto-notes-all");
 const clearNotesAllButton = document.querySelector("#clear-notes-all");
+const hintButton = document.querySelector("#hint");
 const undoActionButton = document.querySelector("#undo-action");
 const clearCellButton = document.querySelector("#clear-cell");
 const completionBurstElement = document.querySelector("#completion-burst");
@@ -167,6 +168,13 @@ function clearAxisHighlights() {
   cells.forEach((cell) => cell.container.classList.remove("axis-highlight"));
 }
 
+function clearHintHighlights() {
+  cells.forEach((cell) => {
+    cell.container.classList.remove("hint-focus");
+    cell.container.classList.remove("hint-elim");
+  });
+}
+
 function clearSelection() {
   cells.forEach((cell) => {
     cell.container.classList.remove("selected");
@@ -177,6 +185,28 @@ function clearSelection() {
 }
 function clearTransientHighlights() {
   clearAxisHighlights();
+  clearHintHighlights();
+}
+
+function applyHintHighlights(highlights) {
+  clearHintHighlights();
+  if (!Array.isArray(highlights)) {
+    return;
+  }
+
+  highlights.forEach((hint) => {
+    const row = Number(hint?.row);
+    const column = Number(hint?.column);
+    if (!Number.isFinite(row) || !Number.isFinite(column)) {
+      return;
+    }
+    const cell = cells[row * 9 + column];
+    if (!cell) {
+      return;
+    }
+    const kind = hint?.kind === "elim" ? "hint-elim" : "hint-focus";
+    cell.container.classList.add(kind);
+  });
 }
 
 function refreshSelectionStyles() {
@@ -500,6 +530,38 @@ function clearAllNotes() {
   refreshMatchHighlights();
   finalizeBatchSelection();
   updateStatus(`Cleared notes from ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
+}
+
+async function requestHint() {
+  clearTransientHighlights();
+
+  if (isLoadingPuzzle) {
+    updateStatus("Still loading the puzzle...");
+    return;
+  }
+  if (!cells.length) {
+    updateStatus("Start a game first.");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/hint", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ board: currentBoard() }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      throw new Error(detail?.detail ?? "Could not fetch a hint.");
+    }
+
+    const hint = await response.json();
+    applyHintHighlights(hint?.highlights);
+    updateStatus(hint?.message ?? "No hint available.");
+  } catch (error) {
+    updateStatus(`Could not fetch a hint (${error?.message ?? "network error"}).`);
+  }
 }
 function updateLiveValidation() {
   clearInvalidStates();
@@ -1292,6 +1354,9 @@ if (autoNotesAllButton) {
 }
 if (clearNotesAllButton) {
   clearNotesAllButton.addEventListener("click", clearAllNotes);
+}
+if (hintButton) {
+  hintButton.addEventListener("click", requestHint);
 }
 if (undoActionButton) {
   undoActionButton.addEventListener("click", undoLastAction);

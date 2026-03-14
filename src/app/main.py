@@ -16,6 +16,7 @@ from app.core.auth import (
     verify_password,
 )
 from app.core.db import get_db, init_db
+from app.core.hints import get_hint
 from app.core.sudoku import generate_puzzle, validate_board
 
 app = FastAPI(title="Sudoku App")
@@ -159,6 +160,11 @@ def get_puzzle(difficulty: str = "easy") -> dict[str, object]:
 @app.post("/api/check-board")
 def check_board(payload: BoardPayload) -> dict[str, object]:
     return validate_board(payload.board)
+
+
+@app.post("/api/hint")
+def hint(payload: BoardPayload) -> dict[str, object]:
+    return get_hint(payload.board)
 
 
 @app.get("/health")
