@@ -29,6 +29,7 @@ def get_hint(board: Grid) -> dict[str, object]:
         return {
             "message": f"Something is off: {_coord(r, c)} has no possible candidates. Try undoing the last move.",
             "highlights": [{"row": r, "column": c, "kind": "focus"}],
+            "action": None,
         }
 
     # 1) Naked single.
@@ -38,6 +39,7 @@ def get_hint(board: Grid) -> dict[str, object]:
         return {
             "message": f"Naked single: {_coord(r, c)} can only be {d}.",
             "highlights": [{"row": r, "column": c, "kind": "focus"}],
+            "action": {"type": "place", "row": r, "column": c, "digit": d},
         }
 
     # 2) Hidden single (row/col/box).
@@ -56,6 +58,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                     return {
                         "message": f"Hidden single: in {unit_label}, only {_coord(r, c)} can be {d}.",
                         "highlights": [{"row": r, "column": c, "kind": "focus"}],
+                        "action": {"type": "place", "row": r, "column": c, "digit": d},
                     }
 
     # 3) Locked candidates (pointing/claiming).
@@ -88,6 +91,11 @@ def get_hint(board: Grid) -> dict[str, object]:
                             [{"row": r, "column": c, "kind": "focus"}]
                             + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
                         ),
+                        "action": {
+                            "type": "note-toggle",
+                            "digit": d,
+                            "cells": [{"row": rr, "column": cc} for rr, cc in eliminations],
+                        },
                     }
 
             if len(cols) == 1:
@@ -109,6 +117,11 @@ def get_hint(board: Grid) -> dict[str, object]:
                             [{"row": r, "column": c, "kind": "focus"}]
                             + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
                         ),
+                        "action": {
+                            "type": "note-toggle",
+                            "digit": d,
+                            "cells": [{"row": rr, "column": cc} for rr, cc in eliminations],
+                        },
                     }
 
     # Claiming: in a row/col, a digit is confined to one box => eliminate elsewhere in that box.
@@ -141,6 +154,11 @@ def get_hint(board: Grid) -> dict[str, object]:
                             [{"row": r, "column": c, "kind": "focus"}]
                             + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
                         ),
+                        "action": {
+                            "type": "note-toggle",
+                            "digit": d,
+                            "cells": [{"row": rr, "column": cc} for rr, cc in eliminations],
+                        },
                     }
 
     # 4) Naked pair (one unit).
@@ -177,6 +195,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                             [{"row": r1, "column": c1, "kind": "focus"}, {"row": r2, "column": c2, "kind": "focus"}]
                             + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
                         ),
+                        "action": None,
                     }
 
     # Fallback: pick a cell with the fewest candidates.
@@ -186,6 +205,7 @@ def get_hint(board: Grid) -> dict[str, object]:
         return {
             "message": f"No simple forced move found. Consider {_coord(r, c)}. Candidates: {digits}.",
             "highlights": [{"row": r, "column": c, "kind": "focus"}],
+            "action": {"type": "focus", "row": r, "column": c},
         }
 
-    return {"message": "No hints available.", "highlights": []}
+    return {"message": "No hints available.", "highlights": [], "action": None}

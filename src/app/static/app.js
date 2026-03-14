@@ -209,6 +209,86 @@ function applyHintHighlights(highlights) {
   });
 }
 
+function programmaticSelectCells(nextCells) {
+  const list = Array.isArray(nextCells) ? nextCells.filter(Boolean) : [];
+  if (!list.length) {
+    return;
+  }
+
+  clearSelection();
+  selectedCells = new Set(list);
+  activeCell = list[0];
+  refreshSelectionStyles();
+  if (activeCell?.input) {
+    activeCell.input.focus();
+  }
+  syncHighlightFromCell(activeCell);
+}
+
+function applyHintAction(action) {
+  if (!action || typeof action !== "object") {
+    return;
+  }
+
+  const type = action.type;
+  if (type === "place") {
+    const row = Number(action.row);
+    const column = Number(action.column);
+    if (!Number.isFinite(row) || !Number.isFinite(column)) {
+      return;
+    }
+
+    if (pencilMode) {
+      pencilMode = false;
+      updatePencilButton();
+    }
+
+    const cell = cells[row * 9 + column];
+    if (!cell) {
+      return;
+    }
+    programmaticSelectCells([cell]);
+    return;
+  }
+
+  if (type === "note-toggle") {
+    const digit = Number(action.digit);
+    if (!Number.isFinite(digit) || digit < 1 || digit > 9) {
+      return;
+    }
+
+    if (!pencilMode) {
+      pencilMode = true;
+      updatePencilButton();
+    }
+
+    const targets = Array.isArray(action.cells) ? action.cells : [];
+    const targetCells = targets.map((target) => {
+      const row = Number(target?.row);
+      const column = Number(target?.column);
+      if (!Number.isFinite(row) || !Number.isFinite(column)) {
+        return null;
+      }
+      return cells[row * 9 + column] ?? null;
+    }).filter(Boolean);
+
+    programmaticSelectCells(targetCells);
+    return;
+  }
+
+  if (type === "focus") {
+    const row = Number(action.row);
+    const column = Number(action.column);
+    if (!Number.isFinite(row) || !Number.isFinite(column)) {
+      return;
+    }
+    const cell = cells[row * 9 + column];
+    if (cell) {
+      programmaticSelectCells([cell]);
+    }
+  }
+}
+
 function refreshSelectionStyles() {
   cells.forEach((cell) => {
     const selected = selectedCells.has(cell);
@@ -558,6 +638,7 @@ async function requestHint() {
 
     const hint = await response.json();
     applyHintHighlights(hint?.highlights);
+    applyHintAction(hint?.action);
     updateStatus(hint?.message ?? "No hint available.");
   } catch (error) {
     updateStatus(`Could not fetch a hint (${error?.message ?? "network error"}).`);
@@ -1327,6 +1408,7 @@ document.addEventListener("click", (event) => {
   clearSelection();
   clearMatchHighlights();
   clearAxisHighlights();
+  clearHintHighlights();
 });
 
 document.addEventListener("keydown", (event) => {
