@@ -32,36 +32,8 @@ def get_hint(board: Grid) -> dict[str, object]:
             "action": None,
         }
 
-    # 1) Naked single.
-    singles = [((r, c), next(iter(opts))) for (r, c), opts in cand.items() if len(opts) == 1]
-    if singles:
-        (r, c), d = singles[0]
-        return {
-            "message": f"Naked single: {_coord(r, c)} can only be {d}.",
-            "highlights": [{"row": r, "column": c, "kind": "focus"}],
-            "action": {"type": "place", "row": r, "column": c, "digit": d},
-        }
-
-    # 2) Hidden single (row/col/box).
-    for unit_name, groups in UNITS.items():
-        for idx, group in enumerate(groups):
-            positions_by_digit: dict[int, list[tuple[int, int]]] = {d: [] for d in range(1, 10)}
-            for r, c in group:
-                if board[r][c] != 0:
-                    continue
-                for d in cand.get((r, c), set()):
-                    positions_by_digit[d].append((r, c))
-            for d, positions in positions_by_digit.items():
-                if len(positions) == 1:
-                    r, c = positions[0]
-                    unit_label = f"{unit_name} {idx + 1}"
-                    return {
-                        "message": f"Hidden single: in {unit_label}, only {_coord(r, c)} can be {d}.",
-                        "highlights": [{"row": r, "column": c, "kind": "focus"}],
-                        "action": {"type": "place", "row": r, "column": c, "digit": d},
-                    }
-
-    # 3) Locked candidates (pointing/claiming).
+    # Prefer "thinking" hints (candidate eliminations) before direct placements.
+    # 1) Locked candidates (pointing/claiming).
     # Pointing: in a box, a digit is confined to one row/col => eliminate elsewhere in that row/col.
     for box_idx, box in enumerate(UNITS["box"]):
         empties = [(r, c) for (r, c) in box if board[r][c] == 0]
@@ -161,7 +133,7 @@ def get_hint(board: Grid) -> dict[str, object]:
                         },
                     }
 
-    # 4) Naked pair (one unit).
+    # 2) Naked pair (one unit).
     for unit_name, groups in UNITS.items():
         for idx, group in enumerate(groups):
             pairs: dict[tuple[int, int], list[tuple[int, int]]] = defaultdict(list)
@@ -197,6 +169,35 @@ def get_hint(board: Grid) -> dict[str, object]:
                         ),
                         "action": None,
                     }
+
+    # 3) Hidden single (row/col/box).
+    for unit_name, groups in UNITS.items():
+        for idx, group in enumerate(groups):
+            positions_by_digit: dict[int, list[tuple[int, int]]] = {d: [] for d in range(1, 10)}
+            for r, c in group:
+                if board[r][c] != 0:
+                    continue
+                for d in cand.get((r, c), set()):
+                    positions_by_digit[d].append((r, c))
+            for d, positions in positions_by_digit.items():
+                if len(positions) == 1:
+                    r, c = positions[0]
+                    unit_label = f"{unit_name} {idx + 1}"
+                    return {
+                        "message": f"Hidden single: in {unit_label}, only {_coord(r, c)} can be {d}.",
+                        "highlights": [{"row": r, "column": c, "kind": "focus"}],
+                        "action": {"type": "place", "row": r, "column": c, "digit": d},
+                    }
+
+    # 4) Naked single.
+    singles = [((r, c), next(iter(opts))) for (r, c), opts in cand.items() if len(opts) == 1]
+    if singles:
+        (r, c), d = singles[0]
+        return {
+            "message": f"Naked single: {_coord(r, c)} can only be {d}.",
+            "highlights": [{"row": r, "column": c, "kind": "focus"}],
+            "action": {"type": "place", "row": r, "column": c, "digit": d},
+        }
 
     # Fallback: pick a cell with the fewest candidates.
     if cand:
