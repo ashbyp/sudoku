@@ -65,7 +65,7 @@ function systemTheme() {
 function storedTheme() {
   try {
     const value = window.localStorage?.getItem(THEME_STORAGE_KEY);
-    if (["light", "dark", "mental", "jazzy"].includes(value)) {
+    if (["light", "dark", "shock"].includes(value)) {
       return value;
     }
   } catch (error) {
@@ -99,7 +99,7 @@ function setStoredEmail(value) {
 }
 
 function applyTheme(theme) {
-  const valid = ["light", "dark", "mental", "jazzy"];
+  const valid = ["light", "dark", "shock"];
   const resolved = valid.includes(theme) ? theme : "light";
   document.documentElement.dataset.theme = resolved;
   if (themeToggleButton) {
@@ -1761,7 +1761,7 @@ if (typeof window.matchMedia === "function") {
 if (themeToggleButton) {
   themeToggleButton.addEventListener("click", () => {
     const current = document.documentElement.dataset.theme || "light";
-    const order = ["light", "dark", "mental", "jazzy"];
+    const order = ["light", "dark", "shock"];
     const next = order[(order.indexOf(current) + 1) % order.length];
     setStoredTheme(next);
     applyTheme(next);

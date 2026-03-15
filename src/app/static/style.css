@@ -51,9 +51,13 @@
   --panel-frost: rgba(31, 25, 22, 0.9);
   --badge-frost: rgba(31, 25, 22, 0.92);
   --surface-border: rgba(255, 245, 235, 0.14);
+  --dark-contrast: rgba(255, 245, 235, 0.24);
+  --dark-contrast-strong: rgba(255, 245, 235, 0.4);
+  --dark-panel-soft: rgba(40, 32, 27, 0.7);
+  --dark-panel-strong: rgba(54, 44, 38, 0.92);
 }
 
-:root[data-theme="mental"] {
+:root[data-theme="shock"] {
   color-scheme: light;
   --bg: #0d102b;
   --bg-top: #ff7ee2;
@@ -78,34 +82,6 @@
   --panel-frost: rgba(255, 255, 255, 0.92);
   --badge-frost: rgba(255, 255, 255, 0.86);
   --surface-border: rgba(15, 12, 31, 0.32);
-}
-
-:root[data-theme="jazzy"] {
-  color-scheme: light;
-  --bg: #0b0514;
-  --bg-top: #ff0590;
-  --top-glow: rgba(255, 5, 144, 0.4);
-  --panel: linear-gradient(135deg, #ffdd41 0%, #ff6ec4 45%, #7138ff 100%);
-  --line: #1a0c26;
-  --soft-line: rgba(255, 255, 255, 0.3);
-  --accent: #22ffd0;
-  --accent-strong: #fff176;
-  --text: #0a040f;
-  --muted: #2d113d;
-  --fixed: rgba(255, 255, 255, 0.3);
-  --selection-ring: #22ffd0;
-  --axis-fill: rgba(34, 255, 208, 0.15);
-  --axis-fill-fixed: rgba(34, 255, 208, 0.25);
-  --match-fill: rgba(255, 255, 255, 0.25);
-  --match-fill-fixed: rgba(255, 255, 255, 0.2);
-  --invalid-fill: rgba(255, 28, 114, 0.3);
-  --invalid-fill-fixed: rgba(255, 28, 114, 0.25);
-  --celebration-gold: #ffe66d;
-  --celebration-ink: #0b0514;
-  --panel-frost: rgba(255, 255, 255, 0.92);
-  --badge-frost: rgba(255, 255, 255, 0.86);
-  --surface-border: rgba(11, 5, 20, 0.35);
-  --board-digit: #fff8d2;
 }
 
 * {
@@ -619,6 +595,28 @@ body.celebration-bg::after {
   border-color: rgba(95, 84, 71, 0.22);
   color: var(--accent-strong);
   box-shadow: 0 12px 18px rgba(68, 43, 23, 0.08);
+}
+
+:root[data-theme="dark"] .pad-button {
+  background: var(--dark-panel-strong);
+  border-color: var(--dark-contrast-strong);
+  color: #f7efe7;
+  box-shadow: 0 14px 22px rgba(9, 7, 6, 0.55);
+}
+
+:root[data-theme="dark"] .pad-button:hover {
+  background: rgba(80, 64, 54, 0.95);
+  border-color: rgba(255, 245, 235, 0.45);
+}
+
+:root[data-theme="dark"] .timer-pill {
+  background: var(--dark-panel-soft);
+  border-color: var(--dark-contrast);
+  color: #f7efe7;
+}
+
+:root[data-theme="dark"] .timer-label {
+  color: rgba(255, 245, 235, 0.7);
 }
 
 .pad-button:disabled {
