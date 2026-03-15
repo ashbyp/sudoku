@@ -156,6 +156,7 @@ function stopPuzzleTimer() {
   if (timerStartMs != null) {
     elapsedSeconds = Math.max(elapsedSeconds, Math.floor((Date.now() - timerStartMs) / 1000));
   }
+  updateTimerDisplay(elapsedSeconds);
 }
 
 function startPuzzleTimer() {
