@@ -60,9 +60,19 @@ class HintPayload(BoardPayload):
     notes: list[list[list[int]]] | None = None
 
 
+class TimePayload(BaseModel):
+    difficulty: str
+    seconds: int = Field(ge=1)
+
+
 def get_current_user(request: Request) -> dict[str, object] | None:
     token = request.cookies.get("session")
     return get_user_by_session(token)
+
+
+def _normalize_difficulty(value: str) -> str:
+    normalized = value.strip().lower()
+    return normalized or "easy"
 
 
 def _asset_url(path: Path) -> str:
@@ -170,6 +180,74 @@ def check_board(payload: BoardPayload) -> dict[str, object]:
 @app.post("/api/hint")
 def hint(payload: HintPayload) -> dict[str, object]:
     return get_hint(payload.board, payload.notes)
+
+
+@app.get("/api/best-time")
+def best_time(
+    difficulty: str = "easy",
+    user: dict[str, object] | None = Depends(get_current_user),
+) -> dict[str, object]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    normalized = _normalize_difficulty(difficulty)
+    with get_db() as db:
+        row = db.execute(
+            """
+            SELECT best_seconds
+            FROM best_times
+            WHERE user_id = ? AND difficulty = ?
+            """,
+            (user["id"], normalized),
+        ).fetchone()
+
+    return {"difficulty": normalized, "best_seconds": row["best_seconds"] if row else None}
+
+
+@app.post("/api/record-time")
+def record_time(
+    payload: TimePayload,
+    user: dict[str, object] | None = Depends(get_current_user),
+) -> dict[str, object]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    normalized = _normalize_difficulty(payload.difficulty)
+    now = datetime.now(timezone.utc).isoformat()
+
+    with get_db() as db:
+        row = db.execute(
+            """
+            SELECT id, best_seconds
+            FROM best_times
+            WHERE user_id = ? AND difficulty = ?
+            """,
+            (user["id"], normalized),
+        ).fetchone()
+
+        if not row:
+            db.execute(
+                """
+                INSERT INTO best_times (user_id, difficulty, best_seconds, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (user["id"], normalized, payload.seconds, now, now),
+            )
+            return {"difficulty": normalized, "best_seconds": payload.seconds, "new_record": True}
+
+        best_seconds = int(row["best_seconds"])
+        if payload.seconds < best_seconds:
+            db.execute(
+                """
+                UPDATE best_times
+                SET best_seconds = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (payload.seconds, now, row["id"]),
+            )
+            return {"difficulty": normalized, "best_seconds": payload.seconds, "new_record": True}
+
+    return {"difficulty": normalized, "best_seconds": best_seconds, "new_record": False}
 
 
 @app.get("/health")

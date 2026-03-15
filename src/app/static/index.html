@@ -70,6 +70,16 @@
           <div class="board-stack">
             <div id="board" class="board" aria-label="Sudoku board"></div>
             <div class="panel status-panel">
+              <div class="status-meta" aria-live="polite">
+                <div class="timer-pill">
+                  <span class="timer-label">Time</span>
+                  <span id="timer">00:00</span>
+                </div>
+                <div class="timer-pill">
+                  <span class="timer-label">Best</span>
+                  <span id="best-time">--</span>
+                </div>
+              </div>
               <div class="status-header">
                 <p id="status-message">Loading puzzle...</p>
                 <button id="hint" class="hint-button" type="button" aria-label="Get a hint" title="Get a hint for the next step">

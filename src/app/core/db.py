@@ -54,6 +54,20 @@ def init_db() -> None:
             );
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS best_times (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                difficulty TEXT NOT NULL,
+                best_seconds INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, difficulty),
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            """
+        )
         connection.commit()
 
 

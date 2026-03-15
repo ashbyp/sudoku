@@ -29,8 +29,12 @@ const userBadgeText = document.querySelector("#user-badge-text");
 const userLogoutButton = document.querySelector("#user-logout");
 const authStatusElement = document.querySelector("#auth-status");
 const themeToggleButton = document.querySelector("#theme-toggle");
+const pageChromeElement = document.querySelector(".page-chrome");
+const timerElement = document.querySelector("#timer");
+const bestTimeElement = document.querySelector("#best-time");
 
 const THEME_STORAGE_KEY = "sudoku-theme";
+const EMAIL_STORAGE_KEY = "sudoku-last-email";
 
 let puzzle = [];
 let solution = [];
@@ -45,6 +49,11 @@ let padButtons = new Map();
 let hasCelebratedCompletion = false;
 let isLoadingPuzzle = false;
 let hintPencilDirective = null;
+let timerStartMs = null;
+let timerIntervalId = null;
+let elapsedSeconds = 0;
+let hasRecordedCompletion = false;
+let currentDifficulty = null;
 
 function systemTheme() {
   if (typeof window.matchMedia !== "function") {
@@ -73,6 +82,22 @@ function setStoredTheme(theme) {
   }
 }
 
+function storedEmail() {
+  try {
+    return window.localStorage?.getItem(EMAIL_STORAGE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function setStoredEmail(value) {
+  try {
+    window.localStorage?.setItem(EMAIL_STORAGE_KEY, value);
+  } catch (error) {
+    // Ignore storage issues.
+  }
+}
+
 function applyTheme(theme) {
   const valid = ["light", "dark", "mental", "jazzy"];
   const resolved = valid.includes(theme) ? theme : "light";
@@ -86,8 +111,147 @@ function cloneGrid(grid) {
   return grid.map((row) => [...row]);
 }
 
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function updateTimerDisplay(seconds) {
+  if (timerElement) {
+    timerElement.textContent = formatDuration(seconds);
+  }
+}
+
+function updateBestTimeDisplay(seconds) {
+  if (!bestTimeElement) {
+    return;
+  }
+  if (seconds == null) {
+    bestTimeElement.textContent = "--";
+    return;
+  }
+  bestTimeElement.textContent = formatDuration(seconds);
+}
+
+function resetTimerUI() {
+  stopPuzzleTimer();
+  timerStartMs = null;
+  elapsedSeconds = 0;
+  hasRecordedCompletion = false;
+  updateTimerDisplay(0);
+  updateBestTimeDisplay(null);
+}
+
+function stopPuzzleTimer() {
+  if (timerIntervalId) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+  if (timerStartMs != null) {
+    elapsedSeconds = Math.max(elapsedSeconds, Math.floor((Date.now() - timerStartMs) / 1000));
+  }
+}
+
+function startPuzzleTimer() {
+  stopPuzzleTimer();
+  timerStartMs = Date.now();
+  elapsedSeconds = 0;
+  hasRecordedCompletion = false;
+  updateTimerDisplay(0);
+  timerIntervalId = setInterval(() => {
+    if (timerStartMs == null) {
+      return;
+    }
+    elapsedSeconds = Math.floor((Date.now() - timerStartMs) / 1000);
+    updateTimerDisplay(elapsedSeconds);
+  }, 1000);
+}
+
+async function fetchBestTime(difficulty) {
+  if (!difficulty || !currentUser) {
+    updateBestTimeDisplay(null);
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/best-time?difficulty=${encodeURIComponent(difficulty)}`, {
+      headers: { "Accept": "application/json" },
+      credentials: "include",
+    });
+    if (!response.ok) {
+      updateBestTimeDisplay(null);
+      return;
+    }
+    const data = await response.json();
+    updateBestTimeDisplay(data?.best_seconds ?? null);
+  } catch (error) {
+    updateBestTimeDisplay(null);
+  }
+}
+
+async function recordBestTime() {
+  if (!currentUser || !currentDifficulty || elapsedSeconds < 1) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/record-time", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ difficulty: currentDifficulty, seconds: elapsedSeconds }),
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = await response.json();
+    updateBestTimeDisplay(data?.best_seconds ?? null);
+    if (data?.new_record) {
+      updateStatus(`New record! ${formatDuration(data.best_seconds)} for ${currentDifficulty} puzzles.`);
+    } else if (data?.best_seconds != null) {
+      updateStatus(`Puzzle solved in ${formatDuration(elapsedSeconds)}. Best is ${formatDuration(data.best_seconds)}.`);
+    }
+  } catch (error) {
+    // Ignore record errors.
+  }
+}
+
+function handlePuzzleSolved() {
+  if (hasRecordedCompletion) {
+    return;
+  }
+  hasRecordedCompletion = true;
+  stopPuzzleTimer();
+  recordBestTime();
+}
+
 function blankGrid() {
   return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => 0));
+}
+
+function resetIdleBoard(message = "Select New game to begin.") {
+  puzzle = blankGrid();
+  solution = blankGrid();
+  currentDifficulty = difficultyElement ? difficultyElement.value : null;
+  renderBoard(puzzle);
+  clearInvalidStates();
+  clearIncorrectStates();
+  clearMatchHighlights();
+  clearAxisHighlights();
+  clearSelection();
+  historyStack = [];
+  clearCompletionCelebration();
+  hasCelebratedCompletion = false;
+  resetTimerUI();
+  updateStatus(message);
 }
 
 function clearCompletionCelebration() {
@@ -766,6 +930,9 @@ function updateAuthUI() {
   if (authSection) {
     authSection.classList.toggle("hidden", signedIn);
   }
+  if (pageChromeElement) {
+    pageChromeElement.classList.toggle("hidden", !signedIn);
+  }
   if (gameShell) {
     gameShell.classList.toggle("hidden", !signedIn);
   }
@@ -785,6 +952,8 @@ async function refreshCurrentUser() {
     const response = await fetch("/api/me", { credentials: "include" });
     if (!response.ok) {
       currentUser = null;
+      currentDifficulty = null;
+      resetTimerUI();
       setAuthStatus("Not signed in.");
       updateAuthUI();
       return;
@@ -793,9 +962,11 @@ async function refreshCurrentUser() {
     currentUser = await response.json();
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
-    loadPuzzle();
+    resetIdleBoard();
   } catch (error) {
     currentUser = null;
+    currentDifficulty = null;
+    resetTimerUI();
     setAuthStatus("Auth service unavailable.", true);
     updateAuthUI();
   }
@@ -829,9 +1000,10 @@ async function handleRegister() {
 
     currentUser = await response.json();
     authPasswordInput.value = "";
+    setStoredEmail(email);
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
-    loadPuzzle();
+    resetIdleBoard();
   } catch (error) {
     setAuthStatus("Registration failed.", true);
   }
@@ -865,9 +1037,10 @@ async function handleLogin() {
 
     currentUser = await response.json();
     authPasswordInput.value = "";
+    setStoredEmail(email);
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
-    loadPuzzle();
+    resetIdleBoard();
   } catch (error) {
     setAuthStatus("Login failed.", true);
   }
@@ -881,6 +1054,8 @@ async function handleLogout() {
   }
 
   currentUser = null;
+  currentDifficulty = null;
+  resetTimerUI();
   if (authPasswordInput) {
     authPasswordInput.value = "";
   }
@@ -1011,6 +1186,7 @@ function updateBoardStatus() {
       triggerCompletionCelebration();
       hasCelebratedCompletion = true;
     }
+    handlePuzzleSolved();
     return;
   }
 
@@ -1368,6 +1544,8 @@ function renderBoard(grid) {
 function solveBoard() {
   clearCompletionCelebration();
   hasCelebratedCompletion = false;
+  stopPuzzleTimer();
+  hasRecordedCompletion = true;
   renderBoard(solution);
   clearInvalidStates();
   clearIncorrectStates();
@@ -1398,6 +1576,9 @@ async function loadPuzzle() {
 
   clearCompletionCelebration();
   hasCelebratedCompletion = false;
+  stopPuzzleTimer();
+  updateTimerDisplay(0);
+  hasRecordedCompletion = false;
   updateStatus("Generating puzzle...");
   clearInvalidStates();
   clearIncorrectStates();
@@ -1434,7 +1615,10 @@ async function loadPuzzle() {
 
     puzzle = cloneGrid(data.puzzle);
     solution = cloneGrid(data.solution);
+    currentDifficulty = data.difficulty;
     renderBoard(puzzle);
+    startPuzzleTimer();
+    fetchBestTime(currentDifficulty);
     updateStatus(`New ${data.difficulty} puzzle ready. Select a cell to begin. Hold Ctrl to select multiple cells.`);
   } catch (error) {
     updateStatus(`Could not load the puzzle (${error?.message ?? "network error"}).`);
@@ -1533,6 +1717,12 @@ if (highlightPaletteElement) {
 if (newGameButton) {
   newGameButton.addEventListener("click", loadPuzzle);
 }
+if (difficultyElement) {
+  difficultyElement.addEventListener("change", () => {
+    currentDifficulty = difficultyElement.value;
+    fetchBestTime(currentDifficulty);
+  });
+}
 if (resetBoardButton) {
   resetBoardButton.addEventListener("click", resetBoard);
 }
@@ -1577,6 +1767,10 @@ if (themeToggleButton) {
   });
 }
 if (authEmailInput) {
+  authEmailInput.value = storedEmail();
+  authEmailInput.addEventListener("input", () => {
+    setStoredEmail(authEmailInput.value.trim());
+  });
   authEmailInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       handleLogin();
@@ -1607,11 +1801,8 @@ if (confettiFieldElement) {
 
 renderNumberPad();
 updatePencilButton();
-renderBoard(blankGrid());
+resetIdleBoard();
 refreshCurrentUser().finally(() => {
-  if (currentUser) {
-    loadPuzzle();
-  }
 });
 
 
