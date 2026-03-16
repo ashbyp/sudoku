@@ -45,6 +45,11 @@ let activeCell = null;
 let highlightedValue = null;
 let historyStack = [];
 let padButtons = new Map();
+let isDragSelecting = false;
+let dragAdditive = false;
+let dragMoved = false;
+let dragSuppressClick = false;
+let dragStartCell = null;
 
 let hasCelebratedCompletion = false;
 let isLoadingPuzzle = false;
@@ -501,6 +506,16 @@ function refreshSelectionStyles() {
     cell.container.classList.toggle("selected", selected);
     cell.container.setAttribute("aria-selected", selected ? "true" : "false");
   });
+}
+
+function addCellToSelection(cell) {
+  if (!cell || selectedCells.has(cell)) {
+    return;
+  }
+  selectedCells.add(cell);
+  activeCell = cell;
+  refreshSelectionStyles();
+  syncHighlightFromCell(activeCell);
 }
 function updatePencilButton() {
   togglePencilButton.textContent = `Pencil mode: ${pencilMode ? "On" : "Off"}`;
@@ -1176,6 +1191,48 @@ function selectCell(cell, appendSelection = false) {
   syncHighlightFromCell(activeCell);
 }
 
+function beginDragSelection(cell, event) {
+  if (!event || event.button !== 0) {
+    return;
+  }
+
+  isDragSelecting = true;
+  dragAdditive = event.ctrlKey || event.metaKey;
+  dragMoved = false;
+  dragSuppressClick = false;
+  dragStartCell = cell;
+
+  if (!dragAdditive) {
+    clearSelection();
+    addCellToSelection(cell);
+    return;
+  }
+}
+
+function endDragSelection() {
+  if (!isDragSelecting) {
+    return;
+  }
+
+  isDragSelecting = false;
+  dragSuppressClick = dragMoved;
+  dragStartCell = null;
+}
+
+function moveSelectionBy(deltaRow, deltaColumn, appendSelection = false) {
+  if (!activeCell) {
+    return;
+  }
+
+  const nextRow = Math.min(8, Math.max(0, activeCell.row + deltaRow));
+  const nextColumn = Math.min(8, Math.max(0, activeCell.column + deltaColumn));
+  const nextCell = cells[nextRow * 9 + nextColumn];
+  if (!nextCell) {
+    return;
+  }
+  selectCell(nextCell, appendSelection);
+}
+
 function updateBoardStatus() {
   const boardIsValid = updateLiveValidation();
   const boardIsComplete = cells.length === 81 && cells.every((cell) => cell.value !== 0);
@@ -1428,7 +1485,27 @@ function buildEditableCell(rowIndex, columnIndex, value) {
   };
 
   container.addEventListener("click", (event) => {
+    if (dragSuppressClick) {
+      event.preventDefault();
+      dragSuppressClick = false;
+      return;
+    }
     selectCell(cell, event.ctrlKey || event.metaKey);
+  });
+
+  container.addEventListener("mousedown", (event) => {
+    beginDragSelection(cell, event);
+  });
+
+  container.addEventListener("mouseenter", () => {
+    if (!isDragSelecting) {
+      return;
+    }
+    if (!dragMoved && dragAdditive && dragStartCell) {
+      addCellToSelection(dragStartCell);
+    }
+    dragMoved = true;
+    addCellToSelection(cell);
   });
 
   container.addEventListener("dblclick", (event) => {
@@ -1468,6 +1545,20 @@ function buildEditableCell(rowIndex, columnIndex, value) {
   input.addEventListener("keydown", (event) => {
     clearTransientHighlights();
 
+    if (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      const moveMap = {
+        ArrowUp: [-1, 0],
+        ArrowDown: [1, 0],
+        ArrowLeft: [0, -1],
+        ArrowRight: [0, 1],
+      };
+      const [deltaRow, deltaColumn] = moveMap[event.key] ?? [0, 0];
+      const appendSelection = event.ctrlKey || event.metaKey;
+      moveSelectionBy(deltaRow, deltaColumn, appendSelection);
+      return;
+    }
+
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
       event.preventDefault();
       undoLastAction();
@@ -1478,7 +1569,8 @@ function buildEditableCell(rowIndex, columnIndex, value) {
       event.preventDefault();
       const digit = Number(event.key);
       const forcedByHint = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
-      applyDigitToSelection(digit, forcedByHint);
+      const ctrlPencil = event.ctrlKey || event.metaKey;
+      applyDigitToSelection(digit, forcedByHint || ctrlPencil);
       return;
     }
 
@@ -1665,6 +1757,10 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     undoLastAction();
   }
+});
+
+document.addEventListener("mouseup", () => {
+  endDragSelection();
 });
 
 if (togglePencilButton) {
