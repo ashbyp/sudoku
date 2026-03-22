@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sudoku Admin</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <h1>Sudoku Admin</h1>
+        <p class="subtitle">Create and manage custom puzzles for players.</p>
+      </section>
+
+      <section class="admin-toolbar">
+        <a class="admin-link" href="/">Back to game</a>
+        <span id="admin-user" class="muted"></span>
+      </section>
+
+      <section class="panel admin-panel">
+        <div class="admin-fields">
+          <label class="auth-field">
+            <span>Puzzle name</span>
+            <input id="admin-name" type="text" placeholder="Unique puzzle name" />
+          </label>
+          <label class="admin-toggle">
+            <input id="admin-has-solution" type="checkbox" />
+            <span>Include solution grid</span>
+          </label>
+        </div>
+
+        <div class="admin-grids">
+          <div class="admin-grid-wrap">
+            <h2>Puzzle</h2>
+            <div id="admin-puzzle-grid" class="admin-grid" role="grid" aria-label="Puzzle grid"></div>
+          </div>
+          <div class="admin-grid-wrap hidden" id="admin-solution-wrap">
+            <h2>Solution</h2>
+            <div id="admin-solution-grid" class="admin-grid" role="grid" aria-label="Solution grid"></div>
+          </div>
+        </div>
+
+        <p id="admin-status" class="auth-status">Enter a name, then fill the puzzle grid.</p>
+        <div class="admin-actions">
+          <button id="admin-clear-puzzle" type="button" class="control-muted">Clear puzzle</button>
+          <button id="admin-clear-solution" type="button" class="control-muted hidden">Clear solution</button>
+          <button id="admin-save" type="button">Save puzzle</button>
+          <button id="admin-cancel-edit" type="button" class="control-muted hidden">Cancel edit</button>
+        </div>
+      </section>
+
+      <section class="panel admin-panel">
+        <h2>Existing puzzles</h2>
+        <ul id="admin-list" class="admin-list"></ul>
+      </section>
+    </main>
+
+    <script src="/static/admin.js" defer></script>
+  </body>
+</html>

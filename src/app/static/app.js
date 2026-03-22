@@ -17,6 +17,8 @@ const clearCellButton = document.querySelector("#clear-cell");
 const completionBurstElement = document.querySelector("#completion-burst");
 const confettiFieldElement = document.querySelector("#confetti-field");
 const dismissCompletionButton = document.querySelector("#dismiss-completion");
+const completionTitleElement = document.querySelector("#completion-title");
+const completionMessageElement = document.querySelector("#completion-message");
 const authEmailInput = document.querySelector("#auth-email");
 const authPasswordInput = document.querySelector("#auth-password");
 const authRegisterButton = document.querySelector("#auth-register");
@@ -32,6 +34,9 @@ const themeToggleButton = document.querySelector("#theme-toggle");
 const pageChromeElement = document.querySelector(".page-chrome");
 const timerElement = document.querySelector("#timer");
 const bestTimeElement = document.querySelector("#best-time");
+const adminLink = document.querySelector("#admin-link");
+const customPuzzleSelect = document.querySelector("#custom-puzzle");
+const loadCustomButton = document.querySelector("#load-custom");
 
 const THEME_STORAGE_KEY = "sudoku-theme";
 const EMAIL_STORAGE_KEY = "sudoku-last-email";
@@ -59,6 +64,7 @@ let timerIntervalId = null;
 let elapsedSeconds = 0;
 let hasRecordedCompletion = false;
 let currentDifficulty = null;
+let hasSolution = false;
 
 function systemTheme() {
   if (typeof window.matchMedia !== "function") {
@@ -201,8 +207,87 @@ async function fetchBestTime(difficulty) {
   }
 }
 
+async function fetchCustomPuzzleList() {
+  if (!customPuzzleSelect) {
+    return;
+  }
+  customPuzzleSelect.innerHTML = "<option value=\"\">Select a custom puzzle</option>";
+  customPuzzleSelect.disabled = true;
+  if (!currentUser) {
+    return;
+  }
+  try {
+    const response = await fetch("/api/custom-puzzles", { credentials: "include" });
+    if (!response.ok) {
+      return;
+    }
+    const data = await response.json();
+    const puzzles = Array.isArray(data?.puzzles) ? data.puzzles : [];
+    puzzles.forEach((puzzle) => {
+      const option = document.createElement("option");
+      option.value = String(puzzle.id);
+      option.textContent = puzzle.name;
+      customPuzzleSelect.appendChild(option);
+    });
+    customPuzzleSelect.disabled = puzzles.length === 0;
+  } catch (error) {
+    // Ignore
+  }
+}
+
+async function loadCustomPuzzle() {
+  if (!customPuzzleSelect) {
+    return;
+  }
+  const puzzleId = Number(customPuzzleSelect.value);
+  if (!Number.isFinite(puzzleId) || puzzleId <= 0) {
+    updateStatus("Select a custom puzzle first.");
+    return;
+  }
+  clearCompletionCelebration();
+  hasCelebratedCompletion = false;
+  stopPuzzleTimer();
+  updateTimerDisplay(0);
+  hasRecordedCompletion = false;
+
+  try {
+    const response = await fetch(`/api/custom-puzzles/${puzzleId}`, { credentials: "include" });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      updateStatus(body.detail ?? "Could not load custom puzzle.");
+      return;
+    }
+    const data = await response.json();
+    if (!data || !Array.isArray(data.puzzle) || data.puzzle.length !== 9) {
+      updateStatus("Custom puzzle response was invalid.");
+      return;
+    }
+    puzzle = cloneGrid(data.puzzle);
+    solution = data.solution ? cloneGrid(data.solution) : blankGrid();
+    hasSolution = Array.isArray(data.solution);
+    currentDifficulty = null;
+    renderBoard(puzzle);
+    clearInvalidStates();
+    clearIncorrectStates();
+    clearMatchHighlights();
+    clearAxisHighlights();
+    clearSelection();
+    historyStack = [];
+    hasCelebratedCompletion = false;
+    startPuzzleTimer();
+    updateBestTimeDisplay(null);
+    updateStatus(
+      hasSolution
+        ? `Custom puzzle "${data.name}" loaded.`
+        : `Custom puzzle "${data.name}" loaded. No solution available.`,
+    );
+  } catch (error) {
+    updateStatus(`Could not load custom puzzle (${error?.message ?? "network error"}).`);
+  }
+}
+
 async function recordBestTime() {
-  if (!currentUser || !currentDifficulty || elapsedSeconds < 1) {
+  if (!currentUser || !currentDifficulty || elapsedSeconds < 1 || !hasSolution) {
     return;
   }
 
@@ -246,6 +331,7 @@ function blankGrid() {
 function resetIdleBoard(message = "Select New game to begin.") {
   puzzle = blankGrid();
   solution = blankGrid();
+  hasSolution = false;
   currentDifficulty = difficultyElement ? difficultyElement.value : null;
   renderBoard(puzzle);
   clearInvalidStates();
@@ -268,6 +354,12 @@ function clearCompletionCelebration() {
   completionBurstElement.classList.remove("active");
   completionBurstElement.setAttribute("aria-hidden", "true");
   document.body.classList.remove("celebration-bg");
+  if (completionTitleElement) {
+    completionTitleElement.textContent = "You cracked it.";
+  }
+  if (completionMessageElement) {
+    completionMessageElement.textContent = "The whole board is clean. Enjoy the victory lap.";
+  }
 }
 
 function buildConfettiBurst(count = 80) {
@@ -314,6 +406,9 @@ function triggerCompletionCelebration() {
 }
 
 function boardMatchesSolution() {
+  if (!hasSolution || !solution || solution.length !== 9) {
+    return false;
+  }
   return cells.length === 81 && cells.every((cell) => cell.value === solution[cell.row][cell.column]);
 }
 
@@ -955,6 +1050,9 @@ function updateAuthUI() {
   if (userBadgeElement) {
     userBadgeElement.classList.toggle("hidden", !signedIn);
   }
+  if (adminLink) {
+    adminLink.classList.toggle("hidden", !(signedIn && currentUser?.is_admin));
+  }
   if (userBadgeText) {
     userBadgeText.textContent = signedIn && currentUser ? `Signed in as ${currentUser.email}` : "";
   }
@@ -972,6 +1070,7 @@ async function refreshCurrentUser() {
       resetTimerUI();
       setAuthStatus("Not signed in.");
       updateAuthUI();
+      fetchCustomPuzzleList();
       return;
     }
 
@@ -979,12 +1078,14 @@ async function refreshCurrentUser() {
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
     resetIdleBoard();
+    fetchCustomPuzzleList();
   } catch (error) {
     currentUser = null;
     currentDifficulty = null;
     resetTimerUI();
     setAuthStatus("Auth service unavailable.", true);
     updateAuthUI();
+    fetchCustomPuzzleList();
   }
 }
 
@@ -1020,6 +1121,7 @@ async function handleRegister() {
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
     resetIdleBoard();
+    fetchCustomPuzzleList();
   } catch (error) {
     setAuthStatus("Registration failed.", true);
   }
@@ -1057,6 +1159,7 @@ async function handleLogin() {
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
     resetIdleBoard();
+    fetchCustomPuzzleList();
   } catch (error) {
     setAuthStatus("Login failed.", true);
   }
@@ -1077,6 +1180,7 @@ async function handleLogout() {
   }
   setAuthStatus("Not signed in.");
   updateAuthUI();
+  fetchCustomPuzzleList();
 }
 function updateStatus(message) {
   statusMessageElement.textContent = message;
@@ -1085,6 +1189,11 @@ function updateStatus(message) {
 function showIncorrectNumbers() {
   clearTransientHighlights();
   clearIncorrectStates();
+
+  if (!hasSolution) {
+    updateStatus("Incorrect checking needs a solution, which isn't available for this puzzle.");
+    return;
+  }
 
   const incorrectCells = cells.filter((cell) => (
     !cell.fixed && cell.value !== 0 && solution[cell.row][cell.column] !== cell.value
@@ -1237,14 +1346,37 @@ function updateBoardStatus() {
   const boardIsValid = updateLiveValidation();
   const boardIsComplete = cells.length === 81 && cells.every((cell) => cell.value !== 0);
   const boardIsSolved = boardIsValid && boardIsComplete && boardMatchesSolution();
+  const boardIsValidComplete = boardIsValid && boardIsComplete;
 
   if (boardIsSolved) {
     updateStatus("Puzzle solved! Every number is exactly where it should be.");
+    if (completionTitleElement) {
+      completionTitleElement.textContent = "You cracked it.";
+    }
+    if (completionMessageElement) {
+      completionMessageElement.textContent = "The whole board is clean. Enjoy the victory lap.";
+    }
     if (!hasCelebratedCompletion) {
       triggerCompletionCelebration();
       hasCelebratedCompletion = true;
     }
     handlePuzzleSolved();
+    return;
+  }
+
+  if (!hasSolution && boardIsValidComplete) {
+    updateStatus("Puzzle complete! The grid is valid.");
+    if (completionTitleElement) {
+      completionTitleElement.textContent = "Grid verified!";
+    }
+    if (completionMessageElement) {
+      completionMessageElement.textContent = "No solution was provided, but your grid is fully valid.";
+    }
+    stopPuzzleTimer();
+    if (!hasCelebratedCompletion) {
+      triggerCompletionCelebration();
+      hasCelebratedCompletion = true;
+    }
     return;
   }
 
@@ -1635,6 +1767,10 @@ function renderBoard(grid) {
 }
 
 function solveBoard() {
+  if (!hasSolution) {
+    updateStatus("This puzzle does not have a solution available.");
+    return;
+  }
   clearCompletionCelebration();
   hasCelebratedCompletion = false;
   stopPuzzleTimer();
@@ -1708,6 +1844,7 @@ async function loadPuzzle() {
 
     puzzle = cloneGrid(data.puzzle);
     solution = cloneGrid(data.solution);
+    hasSolution = true;
     currentDifficulty = data.difficulty;
     renderBoard(puzzle);
     startPuzzleTimer();
@@ -1813,6 +1950,9 @@ if (highlightPaletteElement) {
 
 if (newGameButton) {
   newGameButton.addEventListener("click", loadPuzzle);
+}
+if (loadCustomButton) {
+  loadCustomButton.addEventListener("click", loadCustomPuzzle);
 }
 if (difficultyElement) {
   difficultyElement.addEventListener("change", () => {

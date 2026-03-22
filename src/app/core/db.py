@@ -26,6 +26,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
             );
             """
@@ -68,6 +69,38 @@ def init_db() -> None:
             );
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS custom_puzzles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                puzzle_json TEXT NOT NULL,
+                solution_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                created_by INTEGER,
+                FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+            );
+            """
+        )
+        puzzle_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(custom_puzzles);").fetchall()
+        }
+        if "created_by" not in puzzle_columns:
+            connection.execute("ALTER TABLE custom_puzzles ADD COLUMN created_by INTEGER;")
+        if "solution_json" not in puzzle_columns:
+            connection.execute("ALTER TABLE custom_puzzles ADD COLUMN solution_json TEXT;")
+        if "updated_at" not in puzzle_columns:
+            connection.execute(
+                "ALTER TABLE custom_puzzles ADD COLUMN updated_at TEXT NOT NULL DEFAULT '';"
+            )
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(users);").fetchall()
+        }
+        if "is_admin" not in columns:
+            connection.execute(
+                "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;"
+            )
         connection.commit()
 
 

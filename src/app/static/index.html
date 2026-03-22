@@ -15,6 +15,7 @@
       </div>
       <div id="user-badge" class="user-badge hidden" aria-live="polite">
         <span id="user-badge-text"></span>
+        <a id="admin-link" class="admin-link hidden" href="/admin">Admin</a>
         <button id="user-logout" type="button">Sign out</button>
       </div>
 
@@ -63,6 +64,13 @@
             <button id="reset-board" type="button">Reset board</button>
             <button id="show-incorrect" type="button">Show incorrect</button>
             <button id="solve-board" type="button">Solve board</button>
+          </div>
+          <div class="control-group control-group-field">
+            <label for="custom-puzzle">Custom puzzle</label>
+            <select id="custom-puzzle">
+              <option value="">Select a custom puzzle</option>
+            </select>
+            <button id="load-custom" type="button" class="control-muted">Load custom</button>
           </div>
         </section>
 
@@ -149,8 +157,8 @@
         <div class="completion-card">
           <button id="dismiss-completion" class="dismiss-completion" type="button" aria-label="Dismiss celebration">x</button>
           <p class="completion-kicker">Puzzle Complete</p>
-          <h2>You cracked it.</h2>
-          <p>The whole board is clean. Enjoy the victory lap.</p>
+          <h2 id="completion-title">You cracked it.</h2>
+          <p id="completion-message">The whole board is clean. Enjoy the victory lap.</p>
           <div id="confetti-field" class="confetti-field" aria-hidden="true"></div>
         </div>
       </div>
