@@ -65,6 +65,8 @@ let elapsedSeconds = 0;
 let hasRecordedCompletion = false;
 let currentDifficulty = null;
 let hasSolution = false;
+let currentCustomPuzzleId = null;
+let isSavingCustomSolution = false;
 
 function systemTheme() {
   if (typeof window.matchMedia !== "function") {
@@ -235,6 +237,34 @@ async function fetchCustomPuzzleList() {
   }
 }
 
+async function saveCustomPuzzleSolution() {
+  if (!currentCustomPuzzleId || isSavingCustomSolution) {
+    return;
+  }
+  isSavingCustomSolution = true;
+  try {
+    const response = await fetch(`/api/custom-puzzles/${currentCustomPuzzleId}/solution`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ board: currentBoard() }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      updateStatus(body.detail ?? "Could not save solution.");
+      isSavingCustomSolution = false;
+      return;
+    }
+    solution = cloneGrid(currentBoard());
+    hasSolution = true;
+    isSavingCustomSolution = false;
+    updateStatus("Solution saved for this puzzle.");
+    fetchCustomPuzzleList();
+  } catch (error) {
+    isSavingCustomSolution = false;
+  }
+}
+
 async function loadCustomPuzzle() {
   if (!customPuzzleSelect) {
     return;
@@ -249,6 +279,7 @@ async function loadCustomPuzzle() {
   stopPuzzleTimer();
   updateTimerDisplay(0);
   hasRecordedCompletion = false;
+  isSavingCustomSolution = false;
 
   try {
     const response = await fetch(`/api/custom-puzzles/${puzzleId}`, { credentials: "include" });
@@ -266,6 +297,7 @@ async function loadCustomPuzzle() {
     solution = data.solution ? cloneGrid(data.solution) : blankGrid();
     hasSolution = Array.isArray(data.solution);
     currentDifficulty = null;
+    currentCustomPuzzleId = data.id ?? puzzleId;
     renderBoard(puzzle);
     clearInvalidStates();
     clearIncorrectStates();
@@ -333,6 +365,8 @@ function resetIdleBoard(message = "Select New game to begin.") {
   solution = blankGrid();
   hasSolution = false;
   currentDifficulty = difficultyElement ? difficultyElement.value : null;
+  currentCustomPuzzleId = null;
+  isSavingCustomSolution = false;
   renderBoard(puzzle);
   clearInvalidStates();
   clearIncorrectStates();
@@ -1377,6 +1411,9 @@ function updateBoardStatus() {
       triggerCompletionCelebration();
       hasCelebratedCompletion = true;
     }
+    if (currentCustomPuzzleId) {
+      saveCustomPuzzleSolution();
+    }
     return;
   }
 
@@ -1846,6 +1883,7 @@ async function loadPuzzle() {
     solution = cloneGrid(data.solution);
     hasSolution = true;
     currentDifficulty = data.difficulty;
+    currentCustomPuzzleId = null;
     renderBoard(puzzle);
     startPuzzleTimer();
     fetchBestTime(currentDifficulty);

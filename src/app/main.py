@@ -243,6 +243,54 @@ def get_custom_puzzle(
     return {"id": row["id"], "name": row["name"], "puzzle": puzzle, "solution": solution}
 
 
+@app.post("/api/custom-puzzles/{puzzle_id}/solution")
+def save_custom_puzzle_solution(
+    puzzle_id: int,
+    payload: BoardPayload,
+    user: dict[str, object] | None = Depends(get_current_user),
+) -> dict[str, object]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    solution = _ensure_grid(payload.board, "Solution")
+    solution_validation = validate_board(solution)
+    if not solution_validation["valid"] or not solution_validation["complete"]:
+        raise HTTPException(status_code=400, detail="Solution must be a complete valid grid.")
+
+    with get_db() as db:
+        row = db.execute(
+            """
+            SELECT puzzle_json, solution_json
+            FROM custom_puzzles
+            WHERE id = ?
+            """,
+            (puzzle_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Custom puzzle not found.")
+        if row["solution_json"]:
+            raise HTTPException(status_code=400, detail="Solution already stored.")
+        puzzle = json.loads(row["puzzle_json"])
+        for r in range(9):
+            for c in range(9):
+                if puzzle[r][c] != 0 and puzzle[r][c] != solution[r][c]:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Solution does not match the puzzle givens.",
+                    )
+        now = datetime.now(timezone.utc).isoformat()
+        db.execute(
+            """
+            UPDATE custom_puzzles
+            SET solution_json = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (json.dumps(solution), now, puzzle_id),
+        )
+
+    return {"status": "ok"}
+
+
 @app.get("/api/admin/custom-puzzles")
 def list_admin_custom_puzzles(
     _: dict[str, object] = Depends(require_admin),
