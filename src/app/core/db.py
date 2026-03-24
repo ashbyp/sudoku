@@ -15,9 +15,11 @@ else:
     DATA_DIR = BASE_DIR / "data"
 
 DB_PATH = DATA_DIR / "app.db"
+AVATAR_DIR = DATA_DIR / "avatars"
 
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    AVATAR_DIR.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as connection:
         connection.execute("PRAGMA foreign_keys = ON;")
         connection.execute(
@@ -27,6 +29,7 @@ def init_db() -> None:
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 is_admin INTEGER NOT NULL DEFAULT 0,
+                avatar_path TEXT,
                 created_at TEXT NOT NULL
             );
             """
@@ -100,6 +103,10 @@ def init_db() -> None:
         if "is_admin" not in columns:
             connection.execute(
                 "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;"
+            )
+        if "avatar_path" not in columns:
+            connection.execute(
+                "ALTER TABLE users ADD COLUMN avatar_path TEXT;"
             )
         connection.commit()
 

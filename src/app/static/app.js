@@ -28,6 +28,10 @@ const authLogoutButton = document.querySelector("#auth-logout");
 const authSection = document.querySelector("#auth-section");
 const gameShell = document.querySelector("#game-shell");
 const userBadgeElement = document.querySelector("#user-badge");
+const userAvatarWrap = document.querySelector(".user-avatar");
+const userAvatarElement = document.querySelector("#user-avatar");
+const userAvatarLetter = document.querySelector("#user-avatar-letter");
+const userAvatarInput = document.querySelector("#user-avatar-input");
 const userBadgeText = document.querySelector("#user-badge-text");
 const userLogoutButton = document.querySelector("#user-logout");
 const authStatusElement = document.querySelector("#auth-status");
@@ -1101,6 +1105,36 @@ function setAuthStatus(message, isError = false) {
   authStatusElement.classList.toggle("error", isError);
 }
 
+function updateAvatarUI() {
+  if (!userAvatarWrap || !userAvatarElement || !userAvatarLetter) {
+    return;
+  }
+  const signedIn = Boolean(currentUser);
+  if (!signedIn) {
+    userAvatarWrap.classList.add("hidden");
+    userAvatarElement.removeAttribute("src");
+    userAvatarElement.classList.add("hidden");
+    userAvatarLetter.classList.add("hidden");
+    return;
+  }
+
+  const avatarUrl = currentUser?.avatar_url;
+  if (avatarUrl) {
+    userAvatarElement.src = avatarUrl;
+    userAvatarWrap.classList.remove("hidden");
+    userAvatarElement.classList.remove("hidden");
+    userAvatarLetter.classList.add("hidden");
+  } else {
+    userAvatarElement.removeAttribute("src");
+    userAvatarWrap.classList.add("hidden");
+    const letter = currentUser?.email?.trim()?.[0] ?? "";
+    userAvatarLetter.textContent = letter.toUpperCase();
+    userAvatarLetter.classList.toggle("hidden", !letter);
+    userAvatarElement.classList.add("hidden");
+    userAvatarWrap.classList.remove("hidden");
+  }
+}
+
 function updateAuthUI() {
   if (!authEmailInput || !authPasswordInput || !authRegisterButton || !authLoginButton || !authLogoutButton) {
     return;
@@ -1131,6 +1165,7 @@ function updateAuthUI() {
   if (userBadgeText) {
     userBadgeText.textContent = signedIn && currentUser ? `Signed in as ${currentUser.email}` : "";
   }
+  updateAvatarUI();
 }
 
 function setHintAcceptState(enabled) {
@@ -1184,6 +1219,38 @@ function applyHintAcceptance() {
     applyDigitToSelection(digit, true);
     lastHintAction = null;
     setHintAcceptState(false);
+  }
+}
+
+async function uploadAvatar(file) {
+  if (!file) {
+    return;
+  }
+  if (!currentUser) {
+    setAuthStatus("Sign in to set an avatar.", true);
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const response = await fetch("/api/avatar", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setAuthStatus(body.detail ?? "Avatar upload failed.", true);
+      return;
+    }
+    const data = await response.json();
+    currentUser.avatar_url = data?.avatar_url ?? null;
+    updateAvatarUI();
+    setAuthStatus("Avatar updated.");
+  } catch (error) {
+    setAuthStatus("Avatar upload failed.", true);
   }
 }
 async function refreshCurrentUser() {
@@ -2135,6 +2202,25 @@ if (userLogoutButton) {
 }
 if (authLogoutButton) {
   authLogoutButton.addEventListener("click", handleLogout);
+}
+if (userAvatarWrap && userAvatarInput) {
+  const openAvatarPicker = () => {
+    userAvatarInput.click();
+  };
+  userAvatarWrap.addEventListener("click", openAvatarPicker);
+  userAvatarWrap.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openAvatarPicker();
+    }
+  });
+  userAvatarInput.addEventListener("change", () => {
+    const file = userAvatarInput.files?.[0] ?? null;
+    if (file) {
+      uploadAvatar(file);
+    }
+    userAvatarInput.value = "";
+  });
 }
 
 // Theme: prefer stored override, otherwise follow the system setting.

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ from app.core.auth import (
     hash_password,
     verify_password,
 )
-from app.core.db import get_db, init_db
+from app.core.db import AVATAR_DIR, get_db, init_db
 from app.core.hints import get_hint
 from app.core.sudoku import generate_puzzle, validate_board
 
@@ -29,7 +29,10 @@ STYLE_PATH = STATIC_DIR / "style.css"
 SCRIPT_PATH = STATIC_DIR / "app.js"
 ADMIN_SCRIPT_PATH = STATIC_DIR / "admin.js"
 
+AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
 
 
 @app.on_event("startup")
@@ -72,6 +75,14 @@ class CustomPuzzlePayload(BaseModel):
     name: str
     puzzle: list[list[int]] = Field(min_length=9, max_length=9)
     solution: list[list[int]] | None = None
+
+
+ALLOWED_AVATAR_TYPES = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+}
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
 
 def get_current_user(request: Request) -> dict[str, object] | None:
@@ -157,7 +168,7 @@ def register(payload: AuthPayload, request: Request, response: Response) -> dict
         samesite="lax",
         secure=request.url.scheme == "https",
     )
-    return {"id": user_id, "email": email}
+    return {"id": user_id, "email": email, "avatar_url": None, "is_admin": False}
 
 
 @app.post("/api/login")
@@ -167,7 +178,7 @@ def login(payload: AuthPayload, request: Request, response: Response) -> dict[st
 
     with get_db() as db:
         row = db.execute(
-            "SELECT id, password_hash FROM users WHERE email = ?",
+            "SELECT id, password_hash, avatar_path, is_admin FROM users WHERE email = ?",
             (email,),
         ).fetchone()
         if not row or not verify_password(password, row["password_hash"]):
@@ -182,7 +193,61 @@ def login(payload: AuthPayload, request: Request, response: Response) -> dict[st
         samesite="lax",
         secure=request.url.scheme == "https",
     )
-    return {"id": user_id, "email": email}
+    avatar_path = row["avatar_path"]
+    avatar_url = f"/avatars/{avatar_path}" if avatar_path else None
+    return {
+        "id": user_id,
+        "email": email,
+        "avatar_url": avatar_url,
+        "is_admin": bool(row["is_admin"]),
+    }
+
+
+@app.post("/api/avatar")
+async def upload_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    user: dict[str, object] | None = Depends(get_current_user),
+) -> dict[str, object]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    content_type = (file.content_type or "").lower()
+    if content_type not in ALLOWED_AVATAR_TYPES:
+        raise HTTPException(status_code=400, detail="Avatar must be a PNG, JPEG, or WEBP image.")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Avatar upload was empty.")
+    if len(data) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=400, detail="Avatar must be under 2MB.")
+
+    ext = ALLOWED_AVATAR_TYPES[content_type]
+    timestamp = int(datetime.now(timezone.utc).timestamp())
+    filename = f"user_{user['id']}_{timestamp}.{ext}"
+    target = AVATAR_DIR / filename
+    target.write_bytes(data)
+
+    with get_db() as db:
+        row = db.execute(
+            "SELECT avatar_path FROM users WHERE id = ?",
+            (user["id"],),
+        ).fetchone()
+        previous = row["avatar_path"] if row else None
+        db.execute(
+            "UPDATE users SET avatar_path = ? WHERE id = ?",
+            (filename, user["id"]),
+        )
+
+    if previous and previous != filename:
+        prior_path = AVATAR_DIR / previous
+        if prior_path.exists():
+            try:
+                prior_path.unlink()
+            except OSError:
+                pass
+
+    return {"avatar_url": f"/avatars/{filename}"}
 
 
 @app.post("/api/logout")

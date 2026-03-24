@@ -14,6 +14,11 @@
         </button>
       </div>
       <div id="user-badge" class="user-badge hidden" aria-live="polite">
+        <div class="user-avatar hidden" role="button" tabindex="0" aria-label="Change avatar">
+          <img id="user-avatar" alt="User avatar" />
+          <span id="user-avatar-letter" class="avatar-letter" aria-hidden="true"></span>
+        </div>
+        <input id="user-avatar-input" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
         <span id="user-badge-text"></span>
         <a id="admin-link" class="admin-link hidden" href="/admin">Admin</a>
         <button id="user-logout" type="button">Sign out</button>

@@ -59,7 +59,7 @@ def get_user_by_session(token: str | None) -> dict[str, object] | None:
     with get_db() as db:
         row = db.execute(
             """
-            SELECT users.id, users.email, users.is_admin, sessions.expires_at
+            SELECT users.id, users.email, users.is_admin, users.avatar_path, sessions.expires_at
             FROM sessions
             JOIN users ON users.id = sessions.user_id
             WHERE sessions.token_hash = ?
@@ -75,4 +75,11 @@ def get_user_by_session(token: str | None) -> dict[str, object] | None:
             db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
             return None
 
-        return {"id": row["id"], "email": row["email"], "is_admin": bool(row["is_admin"])}
+        avatar_path = row["avatar_path"]
+        avatar_url = f"/avatars/{avatar_path}" if avatar_path else None
+        return {
+            "id": row["id"],
+            "email": row["email"],
+            "is_admin": bool(row["is_admin"]),
+            "avatar_url": avatar_url,
+        }

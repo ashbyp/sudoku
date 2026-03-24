@@ -1007,6 +1007,61 @@ body.celebration-bg::after {
   letter-spacing: 0.02em;
 }
 
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-letter {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  text-transform: uppercase;
+}
+
+.user-avatar img.hidden,
+.avatar-letter.hidden {
+  display: none;
+}
+
+.user-avatar:focus-visible {
+  outline: 2px solid var(--selection-ring);
+  outline-offset: 2px;
+}
+
+.avatar-button {
+  font: inherit;
+  border-radius: 999px;
+  border: 1px dashed var(--accent-strong);
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.avatar-button:hover {
+  background: rgba(204, 90, 45, 0.12);
+}
+
 .admin-link {
   font: inherit;
   border-radius: 999px;
@@ -1157,4 +1212,8 @@ body.celebration-bg::after {
   background: transparent;
   color: var(--accent-strong);
   cursor: pointer;
+}
+
+.user-badge .avatar-button {
+  border-style: dashed;
 }
