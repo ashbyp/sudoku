@@ -123,31 +123,19 @@ def _notes_mask(notes: list[list[list[int]]] | None) -> dict[tuple[int, int], se
             if not isinstance(entry, list):
                 return {}
             digits = {int(d) for d in entry if isinstance(d, int) and 1 <= d <= 9}
-            mask[(r, c)] = digits
+            if digits:
+                mask[(r, c)] = digits
     return mask
 
 
 def _build_candidate_map_with_notes(board: Grid, notes: list[list[list[int]]] | None) -> dict[tuple[int, int], set[int]]:
-    base = _build_candidate_map(board)
-    note_mask = _notes_mask(notes)
-
-    if not note_mask:
-        return base
-
-    # If the UI is already showing candidates, prefer that state so we don't repeat
-    # the same "remove candidate" hints after the player applies them.
-    adjusted: dict[tuple[int, int], set[int]] = {}
-    for pos, opts in base.items():
-        shown = note_mask.get(pos)
-        if shown:
-            adjusted[pos] = set(opts) & set(shown)
-        else:
-            adjusted[pos] = set(opts)
-    return adjusted
+    # Always trust the board state for candidates; notes can be incomplete or wrong.
+    return _build_candidate_map(board)
 
 
 def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[str, object]:
     cand = _build_candidate_map_with_notes(board, notes)
+    note_mask = _notes_mask(notes)
 
     # Contradiction check.
     dead = [(r, c) for (r, c), opts in cand.items() if len(opts) == 0]
@@ -164,11 +152,22 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
     singles = [((r, c), next(iter(opts))) for (r, c), opts in cand.items() if len(opts) == 1]
     if singles:
         (r, c), d = singles[0]
-        return {
-            "message": f"Naked single: {_coord(r, c)} can only be {d}.",
-            "highlights": [{"row": r, "column": c, "kind": "focus"}],
-            "action": {"type": "place", "row": r, "column": c, "digit": d},
-        }
+        if note_mask and (r, c) in note_mask:
+            shown = note_mask.get((r, c), set())
+            if not (len(shown) == 1 and d in shown):
+                singles = []
+            else:
+                return {
+                    "message": f"Naked single: {_coord(r, c)} can only be {d}.",
+                    "highlights": [{"row": r, "column": c, "kind": "focus"}],
+                    "action": {"type": "place", "row": r, "column": c, "digit": d},
+                }
+        if not note_mask or (r, c) not in note_mask:
+            return {
+                "message": f"Naked single: {_coord(r, c)} can only be {d}.",
+                "highlights": [{"row": r, "column": c, "kind": "focus"}],
+                "action": {"type": "place", "row": r, "column": c, "digit": d},
+            }
 
     # 2) Hidden single (row/col/box).
     for unit_name, groups in UNITS.items():
@@ -183,11 +182,48 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                 if len(positions) == 1:
                     r, c = positions[0]
                     unit_label = f"{unit_name} {idx + 1}"
+                    if note_mask:
+                        note_positions = [
+                            (rr, cc)
+                            for rr, cc in group
+                            if d in note_mask.get((rr, cc), set())
+                        ]
+                        if note_positions and (len(note_positions) != 1 or note_positions[0] != (r, c)):
+                            continue
                     return {
                         "message": f"Hidden single: in {unit_label}, only {_coord(r, c)} can be {d}.",
                         "highlights": [{"row": r, "column": c, "kind": "focus"}],
                         "action": {"type": "place", "row": r, "column": c, "digit": d},
                     }
+
+    # 2b) Pencil mark suggestion: in a box, a digit appears in exactly two cells (board candidates).
+    for box_idx, box in enumerate(UNITS["box"]):
+        empties = [(r, c) for (r, c) in box if board[r][c] == 0]
+        for d in range(1, 10):
+            positions = [(r, c) for (r, c) in empties if d in cand.get((r, c), set())]
+            if len(positions) != 2:
+                continue
+            note_positions = [pos for pos in empties if d in note_mask.get(pos, set())] if note_mask else []
+            if note_positions:
+                continue
+            (r1, c1), (r2, c2) = positions
+            rows = sorted({r1 + 1, r2 + 1})
+            return {
+                "message": (
+                    f"Pencil marks: in box {box_idx + 1}, digit {d} can only go in "
+                    f"row {rows[0]}" + (f" and row {rows[1]}" if len(rows) > 1 else "") +
+                    f". Add {d} as a pencil mark in those two cells."
+                ),
+                "highlights": [
+                    {"row": r1, "column": c1, "kind": "focus"},
+                    {"row": r2, "column": c2, "kind": "focus"},
+                ],
+                "action": {
+                    "type": "note-add",
+                    "digit": d,
+                    "cells": [{"row": r1, "column": c1}, {"row": r2, "column": c2}],
+                },
+            }
 
     # 3) Locked candidates (pointing/claiming).
     # Pointing: in a box, a digit is confined to one row/col => eliminate elsewhere in that row/col.
@@ -202,13 +238,22 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
 
             if len(rows) == 1:
                 row = next(iter(rows))
+                if note_mask:
+                    note_positions = [
+                        (rr, cc) for rr, cc in empties if d in note_mask.get((rr, cc), set())
+                    ]
+                    note_rows = {rr for rr, _ in note_positions}
+                    if note_positions and (len(note_rows) != 1 or next(iter(note_rows), row) != row):
+                        continue
                 eliminations = []
                 for c in range(9):
                     if _box_index(row, c) == box_idx:
                         continue
                     if d in cand.get((row, c), set()):
                         eliminations.append((row, c))
-                if eliminations:
+                if note_mask:
+                    eliminations = [(rr, cc) for rr, cc in eliminations if d in note_mask.get((rr, cc), set())]
+                if eliminations or not note_mask:
                     r, c = positions[0]
                     return {
                         "message": (
@@ -228,13 +273,22 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
 
             if len(cols) == 1:
                 col = next(iter(cols))
+                if note_mask:
+                    note_positions = [
+                        (rr, cc) for rr, cc in empties if d in note_mask.get((rr, cc), set())
+                    ]
+                    note_cols = {cc for _, cc in note_positions}
+                    if note_positions and (len(note_cols) != 1 or next(iter(note_cols), col) != col):
+                        continue
                 eliminations = []
                 for r in range(9):
                     if _box_index(r, col) == box_idx:
                         continue
                     if d in cand.get((r, col), set()):
                         eliminations.append((r, col))
-                if eliminations:
+                if note_mask:
+                    eliminations = [(rr, cc) for rr, cc in eliminations if d in note_mask.get((rr, cc), set())]
+                if eliminations or not note_mask:
                     r, c = positions[0]
                     return {
                         "message": (
@@ -264,13 +318,22 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                 if len(boxes) != 1:
                     continue
                 box_idx = next(iter(boxes))
+                if note_mask:
+                    note_positions = [
+                        (rr, cc) for rr, cc in empties if d in note_mask.get((rr, cc), set())
+                    ]
+                    note_boxes = {_box_index(rr, cc) for rr, cc in note_positions}
+                    if note_positions and (len(note_boxes) != 1 or next(iter(note_boxes), box_idx) != box_idx):
+                        continue
                 eliminations = []
                 for r, c in UNITS["box"][box_idx]:
                     if (r, c) in positions:
                         continue
                     if d in cand.get((r, c), set()):
                         eliminations.append((r, c))
-                if eliminations:
+                if note_mask:
+                    eliminations = [(rr, cc) for rr, cc in eliminations if d in note_mask.get((rr, cc), set())]
+                if eliminations or not note_mask:
                     r, c = positions[0]
                     unit_label = f"{unit_name} {idx + 1}"
                     return {
@@ -304,6 +367,14 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                 if len(positions) != 2:
                     continue
                 d1, d2 = digits
+                if note_mask:
+                    note_pairs = [
+                        (rr, cc)
+                        for rr, cc in group
+                        if note_mask.get((rr, cc), set()) == set(digits)
+                    ]
+                    if note_pairs and sorted(note_pairs) != sorted(positions):
+                        continue
                 eliminations = []
                 for r, c in group:
                     if board[r][c] != 0 or (r, c) in positions:
@@ -311,7 +382,13 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                     opts = cand.get((r, c), set())
                     if d1 in opts or d2 in opts:
                         eliminations.append((r, c))
-                if eliminations:
+                if note_mask:
+                    eliminations = [
+                        (rr, cc)
+                        for rr, cc in eliminations
+                        if (d1 in note_mask.get((rr, cc), set()) or d2 in note_mask.get((rr, cc), set()))
+                    ]
+                if eliminations or not note_mask:
                     unit_label = f"{unit_name} {idx + 1}"
                     (r1, c1), (r2, c2) = positions
                     return {
@@ -326,14 +403,19 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                         "action": None,
                     }
 
-    #  last attempt: x-wing after all simpler techniques
-    xwing_hint = _solve_xwing_hint(cand)
-    if xwing_hint:
-        return xwing_hint
-
     # 9) X-wing, last ditch.
     xwing_hint = _solve_xwing_hint(cand)
     if xwing_hint:
+        if note_mask and xwing_hint.get("action", {}).get("type") == "note-remove":
+            digit = xwing_hint.get("action", {}).get("digit")
+            cells = xwing_hint.get("action", {}).get("cells", [])
+            filtered = [
+                (cell["row"], cell["column"])
+                for cell in cells
+                if digit in note_mask.get((cell["row"], cell["column"]), set())
+            ]
+            if not filtered:
+                return {"message": "No hints available.", "highlights": [], "action": None}
         return xwing_hint
 
     # Fallback: pick a cell with the fewest candidates.

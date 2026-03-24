@@ -12,6 +12,7 @@ const autoNotesButton = document.querySelector("#auto-notes");
 const autoNotesAllButton = document.querySelector("#auto-notes-all");
 const clearNotesAllButton = document.querySelector("#clear-notes-all");
 const hintButton = document.querySelector("#hint");
+const hintAcceptButton = document.querySelector("#hint-accept");
 const undoActionButton = document.querySelector("#undo-action");
 const clearCellButton = document.querySelector("#clear-cell");
 const completionBurstElement = document.querySelector("#completion-burst");
@@ -67,6 +68,7 @@ let currentDifficulty = null;
 let hasSolution = false;
 let currentCustomPuzzleId = null;
 let isSavingCustomSolution = false;
+let lastHintAction = null;
 
 function systemTheme() {
   if (typeof window.matchMedia !== "function") {
@@ -279,6 +281,8 @@ async function loadCustomPuzzle() {
   stopPuzzleTimer();
   updateTimerDisplay(0);
   hasRecordedCompletion = false;
+  lastHintAction = null;
+  setHintAcceptState(false);
   isSavingCustomSolution = false;
 
   try {
@@ -354,6 +358,8 @@ function handlePuzzleSolved() {
   hasRecordedCompletion = true;
   stopPuzzleTimer();
   recordBestTime();
+  lastHintAction = null;
+  setHintAcceptState(false);
 }
 
 function blankGrid() {
@@ -520,9 +526,11 @@ function clearHintHighlights() {
     cell.container.classList.remove("hint-focus");
     cell.container.classList.remove("hint-elim");
   });
+  lastHintAction = null;
+  setHintAcceptState(false);
 }
 
-function clearSelection() {
+function clearSelection(clearHint = true) {
   cells.forEach((cell) => {
     cell.container.classList.remove("selected");
     cell.container.setAttribute("aria-selected", "false");
@@ -530,6 +538,10 @@ function clearSelection() {
   selectedCells = new Set();
   activeCell = null;
   hintPencilDirective = null;
+  if (clearHint) {
+    lastHintAction = null;
+    setHintAcceptState(false);
+  }
 }
 function clearTransientHighlights() {
   clearAxisHighlights();
@@ -563,7 +575,7 @@ function programmaticSelectCells(nextCells) {
     return;
   }
 
-  clearSelection();
+  clearSelection(false);
   selectedCells = new Set(list);
   activeCell = list[0];
   refreshSelectionStyles();
@@ -601,6 +613,28 @@ function applyHintAction(action) {
     }
 
     hintPencilDirective = { mode: "remove", digit };
+
+    const targets = Array.isArray(action.cells) ? action.cells : [];
+    const targetCells = targets.map((target) => {
+      const row = Number(target?.row);
+      const column = Number(target?.column);
+      if (!Number.isFinite(row) || !Number.isFinite(column)) {
+        return null;
+      }
+      return cells[row * 9 + column] ?? null;
+    }).filter(Boolean);
+
+    programmaticSelectCells(targetCells);
+    return;
+  }
+
+  if (type === "note-add") {
+    const digit = Number(action.digit);
+    if (!Number.isFinite(digit) || digit < 1 || digit > 9) {
+      return;
+    }
+
+    hintPencilDirective = { mode: "add", digit };
 
     const targets = Array.isArray(action.cells) ? action.cells : [];
     const targetCells = targets.map((target) => {
@@ -779,6 +813,8 @@ function resetBoard() {
   clearAxisHighlights();
   clearSelection();
   historyStack = [];
+  lastHintAction = null;
+  setHintAcceptState(false);
   updateStatus("Board reset to the original puzzle.");
 }
 
@@ -987,10 +1023,15 @@ async function requestHint() {
     }
 
     const hint = await response.json();
+    const action = hint?.action ?? null;
     applyHintHighlights(hint?.highlights);
-    applyHintAction(hint?.action);
+    applyHintAction(action);
     updateStatus(hint?.message ?? "No hint available.");
+    lastHintAction = action;
+    setHintAcceptState(Boolean(lastHintAction));
   } catch (error) {
+    lastHintAction = null;
+    setHintAcceptState(false);
     updateStatus(`Could not fetch a hint (${error?.message ?? "network error"}).`);
   }
 }
@@ -1089,6 +1130,60 @@ function updateAuthUI() {
   }
   if (userBadgeText) {
     userBadgeText.textContent = signedIn && currentUser ? `Signed in as ${currentUser.email}` : "";
+  }
+}
+
+function setHintAcceptState(enabled) {
+  if (!hintAcceptButton) {
+    return;
+  }
+  hintAcceptButton.disabled = !enabled;
+  hintAcceptButton.classList.toggle("hidden", !enabled);
+}
+
+function applyHintAcceptance() {
+  if (!lastHintAction) {
+    updateStatus("Request a hint first.");
+    return;
+  }
+
+  const type = lastHintAction.type;
+  if (type === "place") {
+    const row = Number(lastHintAction.row);
+    const column = Number(lastHintAction.column);
+    const digit = Number(lastHintAction.digit);
+    const cell = cells[row * 9 + column];
+    if (!cell || !Number.isFinite(digit)) {
+      return;
+    }
+    selectCell(cell, false);
+    applyDigitToSelection(digit, false);
+    lastHintAction = null;
+    setHintAcceptState(false);
+    return;
+  }
+
+  if (type === "note-remove" || type === "note-add") {
+    const digit = Number(lastHintAction.digit);
+    const targets = Array.isArray(lastHintAction.cells) ? lastHintAction.cells : [];
+    const targetCells = targets.map((target) => {
+      const row = Number(target?.row);
+      const column = Number(target?.column);
+      if (!Number.isFinite(row) || !Number.isFinite(column)) {
+        return null;
+      }
+      return cells[row * 9 + column] ?? null;
+    }).filter(Boolean);
+
+    if (!targetCells.length || !Number.isFinite(digit)) {
+      return;
+    }
+
+    hintPencilDirective = { mode: type === "note-add" ? "add" : "remove", digit };
+    programmaticSelectCells(targetCells);
+    applyDigitToSelection(digit, true);
+    lastHintAction = null;
+    setHintAcceptState(false);
   }
 }
 async function refreshCurrentUser() {
@@ -1425,6 +1520,8 @@ function updateBoardStatus() {
 function undoLastAction() {
   clearTransientHighlights();
   clearIncorrectStates();
+  lastHintAction = null;
+  setHintAcceptState(false);
 
   const action = historyStack.pop();
   if (!action) {
@@ -1474,18 +1571,29 @@ function applyDigitToSelection(digit, forcePencil = false) {
   if (usePencilMode) {
     // If the most recent hint asked to remove a candidate, don't "toggle" it on.
     const removeOnly = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
+    const addOnly = hintPencilDirective?.mode === "add" && hintPencilDirective?.digit === digit;
     const action = {
-      label: removeOnly ? "hint candidate removal" : "pencil marks",
+      label: removeOnly ? "hint candidate removal" : (addOnly ? "hint candidate add" : "pencil marks"),
       highlightedValue,
       cells: changedCells.map(snapshotCell),
     };
 
     let removedCount = 0;
+    let addedCount = 0;
     changedCells.forEach((cell) => {
       if (removeOnly) {
         if (cell.notes.delete(digit)) {
           removedCount += 1;
         }
+        return;
+      }
+
+      if (addOnly) {
+        if (!cell.notes.has(digit)) {
+          cell.notes.add(digit);
+          addedCount += 1;
+        }
+        syncCellDisplay(cell);
         return;
       }
 
@@ -1497,7 +1605,7 @@ function applyDigitToSelection(digit, forcePencil = false) {
       syncCellDisplay(cell);
     });
     pushHistory(action);
-    if (removeOnly) {
+    if (removeOnly || addOnly) {
       hintPencilDirective = null;
     }
     refreshMatchHighlights();
@@ -1505,6 +1613,8 @@ function applyDigitToSelection(digit, forcePencil = false) {
     updateStatus(
       removeOnly
         ? `Removed ${digit} from ${removedCount} cell${removedCount === 1 ? "" : "s"}.`
+        : addOnly
+          ? `Added ${digit} to ${addedCount} cell${addedCount === 1 ? "" : "s"}.`
         : `Pencil mark ${digit} toggled for ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`,
     );
     return;
@@ -1852,6 +1962,8 @@ async function loadPuzzle() {
   clearAxisHighlights();
   clearSelection();
   historyStack = [];
+  lastHintAction = null;
+  setHintAcceptState(false);
 
   try {
     const response = await fetch(`/api/puzzle?difficulty=${difficultyElement.value}`, {
@@ -1886,6 +1998,8 @@ async function loadPuzzle() {
     currentCustomPuzzleId = null;
     renderBoard(puzzle);
     startPuzzleTimer();
+    lastHintAction = null;
+    setHintAcceptState(false);
     fetchBestTime(currentDifficulty);
     updateStatus(`New ${data.difficulty} puzzle ready. Select a cell to begin. Hold Ctrl to select multiple cells.`);
   } catch (error) {
@@ -1959,6 +2073,9 @@ if (clearNotesAllButton) {
 }
 if (hintButton) {
   hintButton.addEventListener("click", requestHint);
+}
+if (hintAcceptButton) {
+  hintAcceptButton.addEventListener("click", applyHintAcceptance);
 }
 if (undoActionButton) {
   undoActionButton.addEventListener("click", undoLastAction);
@@ -2077,6 +2194,7 @@ if (confettiFieldElement) {
 renderNumberPad();
 updatePencilButton();
 resetIdleBoard();
+setHintAcceptState(false);
 refreshCurrentUser().finally(() => {
 });
 

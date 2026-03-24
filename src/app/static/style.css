@@ -178,6 +178,25 @@ body.celebration-bg::after {
   gap: 12px;
 }
 
+.hint-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hint-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint-accept.hidden {
+  display: none;
+}
+
+.hint-accept {
+  border-color: rgba(95, 84, 71, 0.3);
+}
+
 .hint-button {
   flex: 0 0 auto;
   display: inline-flex;
