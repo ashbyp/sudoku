@@ -81,6 +81,7 @@ def init_db() -> None:
                 solution_json TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
+                archived_at TEXT,
                 created_by INTEGER,
                 FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
             );
@@ -108,6 +109,10 @@ def init_db() -> None:
         if "updated_at" not in puzzle_columns:
             connection.execute(
                 "ALTER TABLE custom_puzzles ADD COLUMN updated_at TEXT NOT NULL DEFAULT '';"
+            )
+        if "archived_at" not in puzzle_columns:
+            connection.execute(
+                "ALTER TABLE custom_puzzles ADD COLUMN archived_at TEXT;"
             )
         columns = {
             row[1] for row in connection.execute("PRAGMA table_info(users);").fetchall()

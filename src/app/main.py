@@ -317,6 +317,7 @@ def list_custom_puzzles(user: dict[str, object] | None = Depends(get_current_use
             LEFT JOIN custom_puzzle_completions
               ON custom_puzzles.id = custom_puzzle_completions.puzzle_id
              AND custom_puzzle_completions.user_id = ?
+            WHERE custom_puzzles.archived_at IS NULL
             ORDER BY name ASC
             """
             ,
@@ -437,7 +438,7 @@ def list_admin_custom_puzzles(
     with get_db() as db:
         rows = db.execute(
             """
-            SELECT id, name, solution_json, created_at
+            SELECT id, name, solution_json, created_at, archived_at
             FROM custom_puzzles
             ORDER BY created_at DESC
             """
@@ -448,6 +449,7 @@ def list_admin_custom_puzzles(
             "name": row["name"],
             "has_solution": row["solution_json"] is not None,
             "created_at": row["created_at"],
+            "archived": row["archived_at"] is not None,
         }
         for row in rows
     ]
@@ -598,6 +600,45 @@ def delete_custom_puzzle(
         if not row:
             raise HTTPException(status_code=404, detail="Custom puzzle not found.")
         db.execute("DELETE FROM custom_puzzles WHERE id = ?", (puzzle_id,))
+    return {"status": "ok"}
+
+
+@app.post("/api/admin/custom-puzzles/{puzzle_id}/archive")
+def archive_custom_puzzle(
+    puzzle_id: int,
+    _: dict[str, object] = Depends(require_admin),
+) -> dict[str, str]:
+    now = datetime.now(timezone.utc).isoformat()
+    with get_db() as db:
+        row = db.execute(
+            "SELECT id FROM custom_puzzles WHERE id = ?",
+            (puzzle_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Custom puzzle not found.")
+        db.execute(
+            "UPDATE custom_puzzles SET archived_at = ? WHERE id = ?",
+            (now, puzzle_id),
+        )
+    return {"status": "ok"}
+
+
+@app.post("/api/admin/custom-puzzles/{puzzle_id}/unarchive")
+def unarchive_custom_puzzle(
+    puzzle_id: int,
+    _: dict[str, object] = Depends(require_admin),
+) -> dict[str, str]:
+    with get_db() as db:
+        row = db.execute(
+            "SELECT id FROM custom_puzzles WHERE id = ?",
+            (puzzle_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Custom puzzle not found.")
+        db.execute(
+            "UPDATE custom_puzzles SET archived_at = NULL WHERE id = ?",
+            (puzzle_id,),
+        )
     return {"status": "ok"}
 
 

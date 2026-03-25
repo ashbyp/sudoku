@@ -8,6 +8,7 @@ const saveButton = document.querySelector("#admin-save");
 const clearPuzzleButton = document.querySelector("#admin-clear-puzzle");
 const clearSolutionButton = document.querySelector("#admin-clear-solution");
 const adminList = document.querySelector("#admin-list");
+const adminArchivedList = document.querySelector("#admin-archived-list");
 const adminUser = document.querySelector("#admin-user");
 const cancelEditButton = document.querySelector("#admin-cancel-edit");
 
@@ -96,6 +97,53 @@ async function deletePuzzle(puzzleId) {
   }
 }
 
+async function archivePuzzle(puzzleId) {
+  if (!Number.isFinite(puzzleId)) {
+    return;
+  }
+  setStatus("Archiving puzzle...");
+  try {
+    const response = await fetch(`/api/admin/custom-puzzles/${puzzleId}/archive`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setStatus(body.detail ?? "Archive failed.", true);
+      return;
+    }
+    setStatus("Puzzle archived.");
+    if (editingPuzzleId === puzzleId && cancelEditButton) {
+      cancelEditButton.click();
+    }
+    await loadAdminList();
+  } catch (error) {
+    setStatus("Archive failed.", true);
+  }
+}
+
+async function unarchivePuzzle(puzzleId) {
+  if (!Number.isFinite(puzzleId)) {
+    return;
+  }
+  setStatus("Unarchiving puzzle...");
+  try {
+    const response = await fetch(`/api/admin/custom-puzzles/${puzzleId}/unarchive`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setStatus(body.detail ?? "Unarchive failed.", true);
+      return;
+    }
+    setStatus("Puzzle unarchived.");
+    await loadAdminList();
+  } catch (error) {
+    setStatus("Unarchive failed.", true);
+  }
+}
+
 function setEditingState(puzzleId) {
   editingPuzzleId = puzzleId;
   if (saveButton) {
@@ -107,22 +155,35 @@ function setEditingState(puzzleId) {
 }
 
 async function loadAdminList() {
-  if (!adminList) {
+  if (!adminList || !adminArchivedList) {
     return;
   }
   adminList.innerHTML = "";
+  adminArchivedList.innerHTML = "";
   try {
     const response = await fetch("/api/admin/custom-puzzles", { credentials: "include" });
     if (!response.ok) {
       adminList.innerHTML = "<li>Unable to load custom puzzles.</li>";
+      adminArchivedList.innerHTML = "<li>Unable to load custom puzzles.</li>";
       return;
     }
     const data = await response.json();
     if (!data?.puzzles?.length) {
       adminList.innerHTML = "<li>No custom puzzles yet.</li>";
+      adminArchivedList.innerHTML = "<li>No archived puzzles.</li>";
       return;
     }
-    data.puzzles.forEach((puzzle) => {
+    const active = data.puzzles.filter((puzzle) => !puzzle.archived);
+    const archived = data.puzzles.filter((puzzle) => puzzle.archived);
+
+    if (!active.length) {
+      adminList.innerHTML = "<li>No active puzzles.</li>";
+    }
+    if (!archived.length) {
+      adminArchivedList.innerHTML = "<li>No archived puzzles.</li>";
+    }
+
+    active.forEach((puzzle) => {
       const li = document.createElement("li");
       const label = document.createElement("span");
       label.textContent = `${puzzle.name} ${puzzle.has_solution ? "(with solution)" : "(no solution)"}`;
@@ -140,13 +201,46 @@ async function loadAdminList() {
       deleteButton.addEventListener("click", () => {
         deletePuzzle(puzzle.id);
       });
+      const archiveButton = document.createElement("button");
+      archiveButton.type = "button";
+      archiveButton.className = "control-muted";
+      archiveButton.textContent = "Archive";
+      archiveButton.addEventListener("click", () => {
+        archivePuzzle(puzzle.id);
+      });
       li.appendChild(label);
       li.appendChild(editButton);
+      li.appendChild(archiveButton);
       li.appendChild(deleteButton);
       adminList.appendChild(li);
     });
+
+    archived.forEach((puzzle) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = `${puzzle.name} ${puzzle.has_solution ? "(with solution)" : "(no solution)"}`;
+      const unarchiveButton = document.createElement("button");
+      unarchiveButton.type = "button";
+      unarchiveButton.className = "control-muted";
+      unarchiveButton.textContent = "Unarchive";
+      unarchiveButton.addEventListener("click", () => {
+        unarchivePuzzle(puzzle.id);
+      });
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "control-muted danger";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", () => {
+        deletePuzzle(puzzle.id);
+      });
+      li.appendChild(label);
+      li.appendChild(unarchiveButton);
+      li.appendChild(deleteButton);
+      adminArchivedList.appendChild(li);
+    });
   } catch (error) {
     adminList.innerHTML = "<li>Unable to load custom puzzles.</li>";
+    adminArchivedList.innerHTML = "<li>Unable to load custom puzzles.</li>";
   }
 }
 
