@@ -403,6 +403,117 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                         "action": None,
                     }
 
+    # 5) Hidden pair (one unit).
+    for unit_name, groups in UNITS.items():
+        for idx, group in enumerate(groups):
+            positions_by_digit: dict[int, list[tuple[int, int]]] = {d: [] for d in range(1, 10)}
+            for r, c in group:
+                if board[r][c] != 0:
+                    continue
+                for d in cand.get((r, c), set()):
+                    positions_by_digit[d].append((r, c))
+
+            for d1, d2 in combinations(range(1, 10), 2):
+                pos1 = positions_by_digit[d1]
+                pos2 = positions_by_digit[d2]
+                if len(pos1) == 2 and pos1 == pos2:
+                    (r1, c1), (r2, c2) = pos1
+                    if note_mask:
+                        note_pairs = [
+                            (rr, cc)
+                            for rr, cc in group
+                            if note_mask.get((rr, cc), set()) == {d1, d2}
+                        ]
+                        if note_pairs and sorted(note_pairs) != sorted(pos1):
+                            continue
+                    unit_label = f"{unit_name} {idx + 1}"
+                    return {
+                        "message": (
+                            f"Hidden pair: in {unit_label}, {_coord(r1, c1)} and {_coord(r2, c2)} are the only places "
+                            f"for {d1} and {d2}. You can remove other candidates from those two cells."
+                        ),
+                        "highlights": [
+                            {"row": r1, "column": c1, "kind": "focus"},
+                            {"row": r2, "column": c2, "kind": "focus"},
+                        ],
+                        "action": None,
+                    }
+
+    # 6) Naked triple (one unit).
+    for unit_name, groups in UNITS.items():
+        for idx, group in enumerate(groups):
+            triple_cells = [
+                (r, c)
+                for r, c in group
+                if board[r][c] == 0 and 2 <= len(cand.get((r, c), set())) <= 3
+            ]
+            for a, b, c in combinations(triple_cells, 3):
+                union = set(cand.get(a, set())) | set(cand.get(b, set())) | set(cand.get(c, set()))
+                if len(union) != 3:
+                    continue
+                eliminations = []
+                for r, cc in group:
+                    pos = (r, cc)
+                    if board[r][cc] != 0 or pos in (a, b, c):
+                        continue
+                    opts = cand.get(pos, set())
+                    if opts & union:
+                        eliminations.append(pos)
+                if not eliminations and all(cand.get(pos, set()) == union for pos in (a, b, c)):
+                    continue
+                unit_label = f"{unit_name} {idx + 1}"
+                (r1, c1), (r2, c2), (r3, c3) = a, b, c
+                d1, d2, d3 = sorted(union)
+                return {
+                    "message": (
+                        f"Naked triple: in {unit_label}, {_coord(r1, c1)}, {_coord(r2, c2)}, and {_coord(r3, c3)} "
+                        f"can only be {{{d1}, {d2}, {d3}}}. You can remove these digits from the other cells in that unit."
+                    ),
+                    "highlights": (
+                        [{"row": r1, "column": c1, "kind": "focus"},
+                         {"row": r2, "column": c2, "kind": "focus"},
+                         {"row": r3, "column": c3, "kind": "focus"}]
+                        + [{"row": rr, "column": cc, "kind": "elim"} for rr, cc in eliminations[:6]]
+                    ),
+                    "action": None,
+                }
+
+    # 7) Hidden triple (one unit).
+    for unit_name, groups in UNITS.items():
+        for idx, group in enumerate(groups):
+            positions_by_digit: dict[int, list[tuple[int, int]]] = {d: [] for d in range(1, 10)}
+            for r, c in group:
+                if board[r][c] != 0:
+                    continue
+                for d in cand.get((r, c), set()):
+                    positions_by_digit[d].append((r, c))
+
+            for d1, d2, d3 in combinations(range(1, 10), 3):
+                pos1 = positions_by_digit[d1]
+                pos2 = positions_by_digit[d2]
+                pos3 = positions_by_digit[d3]
+                if not (1 <= len(pos1) <= 3 and 1 <= len(pos2) <= 3 and 1 <= len(pos3) <= 3):
+                    continue
+                union = set(pos1) | set(pos2) | set(pos3)
+                if len(union) != 3:
+                    continue
+                if all(cand.get(pos, set()).issubset({d1, d2, d3}) for pos in union):
+                    continue
+                unit_label = f"{unit_name} {idx + 1}"
+                (r1, c1), (r2, c2), (r3, c3) = sorted(union)
+                return {
+                    "message": (
+                        f"Hidden triple: in {unit_label}, only {_coord(r1, c1)}, {_coord(r2, c2)}, and {_coord(r3, c3)} "
+                        f"can hold {d1}, {d2}, and {d3}. You can remove other candidates from those three cells."
+                    ),
+                    "highlights": [
+                        {"row": r1, "column": c1, "kind": "focus"},
+                        {"row": r2, "column": c2, "kind": "focus"},
+                        {"row": r3, "column": c3, "kind": "focus"},
+                    ],
+                    "action": None,
+                }
+
     # 9) X-wing, last ditch.
     xwing_hint = _solve_xwing_hint(cand)
     if xwing_hint:

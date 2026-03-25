@@ -867,6 +867,7 @@ function setCellValue(cell, value) {
   cell.value = value;
   if (value !== 0) {
     cell.notes.clear();
+    setCellMark(cell, null);
   }
   syncCellDisplay(cell);
 }
