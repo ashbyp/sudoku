@@ -71,6 +71,17 @@ class TimePayload(BaseModel):
     seconds: int = Field(ge=1)
 
 
+class PuzzleSavePayload(BaseModel):
+    puzzle: list[list[int]] = Field(min_length=9, max_length=9)
+    current: list[list[int]] = Field(min_length=9, max_length=9)
+    notes: list[list[list[int]]] | None = None
+    solution: list[list[int]] | None = None
+    difficulty: str | None = None
+    custom_puzzle_id: int | None = None
+    has_solution: bool = False
+    elapsed_seconds: int = Field(ge=0)
+
+
 class CustomPuzzlePayload(BaseModel):
     name: str
     puzzle: list[list[int]] = Field(min_length=9, max_length=9)
@@ -113,6 +124,31 @@ def _ensure_grid(grid: list[list[int]], label: str) -> list[list[int]]:
             if not isinstance(value, int) or value < 0 or value > 9:
                 raise HTTPException(status_code=400, detail=f"{label} digits must be 0-9.")
             normalized_row.append(value)
+        normalized.append(normalized_row)
+    return normalized
+
+
+def _ensure_notes(notes: list[list[list[int]]] | None) -> list[list[list[int]]]:
+    if not notes:
+        return [[[] for _ in range(9)] for _ in range(9)]
+    if len(notes) != 9 or any(not isinstance(row, list) or len(row) != 9 for row in notes):
+        raise HTTPException(status_code=400, detail="Notes must be a 9x9 grid.")
+    normalized: list[list[list[int]]] = []
+    for row in notes:
+        normalized_row: list[list[int]] = []
+        for entry in row:
+            if entry is None:
+                normalized_row.append([])
+                continue
+            if not isinstance(entry, list):
+                raise HTTPException(status_code=400, detail="Notes entries must be lists.")
+            digits: list[int] = []
+            for value in entry:
+                if not isinstance(value, int) or value < 1 or value > 9:
+                    continue
+                if value not in digits:
+                    digits.append(value)
+            normalized_row.append(digits)
         normalized.append(normalized_row)
     return normalized
 
@@ -613,6 +649,66 @@ def record_time(
             return {"difficulty": normalized, "best_seconds": payload.seconds, "new_record": True}
 
     return {"difficulty": normalized, "best_seconds": best_seconds, "new_record": False}
+
+
+@app.get("/api/puzzle-save")
+def get_puzzle_save(
+    user: dict[str, object] | None = Depends(get_current_user),
+) -> dict[str, object]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    with get_db() as db:
+        row = db.execute(
+            """
+            SELECT puzzle_json, notes_json
+            FROM puzzle_saves
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (user["id"],),
+        ).fetchone()
+    if not row:
+        return {"save": None}
+    payload = json.loads(row["puzzle_json"]) if row["puzzle_json"] else {}
+    payload["notes"] = json.loads(row["notes_json"]) if row["notes_json"] else []
+    return {"save": payload}
+
+
+@app.post("/api/puzzle-save")
+def save_puzzle(
+    payload: PuzzleSavePayload,
+    user: dict[str, object] | None = Depends(get_current_user),
+) -> dict[str, str]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    puzzle = _ensure_grid(payload.puzzle, "Puzzle")
+    current = _ensure_grid(payload.current, "Current board")
+    solution = _ensure_grid(payload.solution, "Solution") if payload.solution is not None else None
+    notes = _ensure_notes(payload.notes)
+
+    state = {
+        "puzzle": puzzle,
+        "current": current,
+        "solution": solution,
+        "difficulty": payload.difficulty,
+        "custom_puzzle_id": payload.custom_puzzle_id,
+        "has_solution": bool(payload.has_solution),
+        "elapsed_seconds": int(payload.elapsed_seconds),
+    }
+
+    now = datetime.now(timezone.utc).isoformat()
+    with get_db() as db:
+        db.execute("DELETE FROM puzzle_saves WHERE user_id = ?", (user["id"],))
+        db.execute(
+            """
+            INSERT INTO puzzle_saves (user_id, puzzle_json, notes_json, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (user["id"], json.dumps(state), json.dumps(notes), now),
+        )
+    return {"status": "ok"}
 
 
 @app.get("/health")

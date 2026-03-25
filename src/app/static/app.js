@@ -73,6 +73,8 @@ let hasSolution = false;
 let currentCustomPuzzleId = null;
 let isSavingCustomSolution = false;
 let lastHintAction = null;
+let saveTimerId = null;
+let isRestoringSave = false;
 
 function systemTheme() {
   if (typeof window.matchMedia !== "function") {
@@ -215,6 +217,134 @@ async function fetchBestTime(difficulty) {
   }
 }
 
+function schedulePuzzleSave(reason = "") {
+  if (!currentUser || isRestoringSave) {
+    return;
+  }
+  if (saveTimerId) {
+    clearTimeout(saveTimerId);
+  }
+  saveTimerId = setTimeout(() => {
+    saveTimerId = null;
+    savePuzzleState(reason);
+  }, 500);
+}
+
+function collectPuzzleState() {
+  return {
+    puzzle: cloneGrid(puzzle),
+    current: currentBoard(),
+    notes: currentNotes(),
+    solution: hasSolution ? cloneGrid(solution) : null,
+    difficulty: currentDifficulty,
+    custom_puzzle_id: currentCustomPuzzleId,
+    has_solution: hasSolution,
+    elapsed_seconds: elapsedSeconds,
+  };
+}
+
+async function savePuzzleState(reason = "") {
+  if (!currentUser || !cells.length) {
+    return;
+  }
+  try {
+    await fetch("/api/puzzle-save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(collectPuzzleState()),
+    });
+  } catch (error) {
+    // Ignore save errors for now.
+  }
+}
+
+function restoreFromSave(data) {
+  if (!data) {
+    return false;
+  }
+  if (!Array.isArray(data.puzzle) || !Array.isArray(data.current)) {
+    return false;
+  }
+  if (data.puzzle.length !== 9 || data.current.length !== 9) {
+    return false;
+  }
+  puzzle = cloneGrid(data.puzzle);
+  solution = Array.isArray(data.solution) ? cloneGrid(data.solution) : blankGrid();
+  hasSolution = Boolean(data.has_solution);
+  currentDifficulty = data.difficulty ?? null;
+  currentCustomPuzzleId = data.custom_puzzle_id ?? null;
+  renderBoard(puzzle);
+
+  const current = data.current;
+  const notes = Array.isArray(data.notes) ? data.notes : [];
+
+  current.forEach((row, rowIndex) => {
+    row.forEach((value, columnIndex) => {
+      const cell = cells[rowIndex * 9 + columnIndex];
+      if (!cell || cell.fixed) {
+        return;
+      }
+      cell.value = Number(value) || 0;
+      cell.notes.clear();
+      const noteRow = notes[rowIndex] ?? [];
+      const noteEntry = noteRow[columnIndex] ?? [];
+      if (Array.isArray(noteEntry)) {
+        noteEntry.forEach((digit) => {
+          if (Number.isFinite(digit) && digit >= 1 && digit <= 9) {
+            cell.notes.add(Number(digit));
+          }
+        });
+      }
+      syncCellDisplay(cell);
+    });
+  });
+
+  clearInvalidStates();
+  clearIncorrectStates();
+  clearMatchHighlights();
+  clearAxisHighlights();
+  clearSelection();
+  historyStack = [];
+  hasCelebratedCompletion = false;
+  const savedSeconds = Math.max(0, Number(data.elapsed_seconds ?? 0));
+  elapsedSeconds = Number.isFinite(savedSeconds) ? savedSeconds : 0;
+  updateTimerDisplay(elapsedSeconds);
+  timerStartMs = Date.now() - elapsedSeconds * 1000;
+  stopPuzzleTimer();
+  startPuzzleTimer();
+  if (currentDifficulty) {
+    fetchBestTime(currentDifficulty);
+  } else {
+    updateBestTimeDisplay(null);
+  }
+  updateStatus("Welcome back! Your last puzzle has been restored.");
+  return true;
+}
+
+async function loadSavedPuzzle() {
+  if (!currentUser) {
+    return;
+  }
+  isRestoringSave = true;
+  try {
+    const response = await fetch("/api/puzzle-save", { credentials: "include" });
+    if (!response.ok) {
+      isRestoringSave = false;
+      return;
+    }
+    const data = await response.json();
+    const restored = restoreFromSave(data?.save);
+    if (!restored) {
+      resetIdleBoard();
+    }
+  } catch (error) {
+    resetIdleBoard();
+  } finally {
+    isRestoringSave = false;
+  }
+}
+
 async function fetchCustomPuzzleList() {
   if (!customPuzzleSelect) {
     return;
@@ -266,6 +396,7 @@ async function saveCustomPuzzleSolution() {
     isSavingCustomSolution = false;
     updateStatus("Solution saved for this puzzle.");
     fetchCustomPuzzleList();
+    schedulePuzzleSave("custom-solution");
   } catch (error) {
     isSavingCustomSolution = false;
   }
@@ -321,6 +452,7 @@ async function loadCustomPuzzle() {
         ? `Custom puzzle "${data.name}" loaded.`
         : `Custom puzzle "${data.name}" loaded. No solution available.`,
     );
+    schedulePuzzleSave("load-custom");
   } catch (error) {
     updateStatus(`Could not load custom puzzle (${error?.message ?? "network error"}).`);
   }
@@ -364,6 +496,7 @@ function handlePuzzleSolved() {
   recordBestTime();
   lastHintAction = null;
   setHintAcceptState(false);
+  schedulePuzzleSave("solved");
 }
 
 function blankGrid() {
@@ -388,6 +521,7 @@ function resetIdleBoard(message = "Select New game to begin.") {
   hasCelebratedCompletion = false;
   resetTimerUI();
   updateStatus(message);
+  schedulePuzzleSave("reset-idle");
 }
 
 function clearCompletionCelebration() {
@@ -820,6 +954,7 @@ function resetBoard() {
   lastHintAction = null;
   setHintAcceptState(false);
   updateStatus("Board reset to the original puzzle.");
+  schedulePuzzleSave("reset-board");
 }
 
 function candidateDigitsForCell(cell, board) {
@@ -900,6 +1035,7 @@ function applyAutoNotes(targetCells, options) {
     finalizeBatchSelection();
   }
   updateStatus(options.successMessage(changedCells.length));
+  schedulePuzzleSave("auto-notes");
 }
 
 function fillAutoNotes() {
@@ -969,6 +1105,7 @@ function fillAllAutoNotes() {
   finalizeBatchSelection();
   const emptyCells = editableCells.filter((cell) => cell.value === 0).length;
   updateStatus(`All notes rebuilt for ${emptyCells} empty cell${emptyCells === 1 ? "" : "s"}.`);
+  schedulePuzzleSave("all-notes");
 }
 
 function clearAllNotes() {
@@ -1000,6 +1137,7 @@ function clearAllNotes() {
   refreshMatchHighlights();
   finalizeBatchSelection();
   updateStatus(`Cleared notes from ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
+  schedulePuzzleSave("clear-notes");
 }
 
 async function requestHint() {
@@ -1273,8 +1411,8 @@ async function refreshCurrentUser() {
     currentUser = await response.json();
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
-    resetIdleBoard();
     fetchCustomPuzzleList();
+    await loadSavedPuzzle();
   } catch (error) {
     currentUser = null;
     currentDifficulty = null;
@@ -1317,6 +1455,7 @@ async function handleRegister() {
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
     resetIdleBoard();
+    schedulePuzzleSave("register");
     fetchCustomPuzzleList();
   } catch (error) {
     setAuthStatus("Registration failed.", true);
@@ -1354,7 +1493,7 @@ async function handleLogin() {
     setStoredEmail(email);
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
-    resetIdleBoard();
+    await loadSavedPuzzle();
     fetchCustomPuzzleList();
   } catch (error) {
     setAuthStatus("Login failed.", true);
@@ -1371,6 +1510,10 @@ async function handleLogout() {
   currentUser = null;
   currentDifficulty = null;
   resetTimerUI();
+  if (saveTimerId) {
+    clearTimeout(saveTimerId);
+    saveTimerId = null;
+  }
   if (authPasswordInput) {
     authPasswordInput.value = "";
   }
@@ -1684,6 +1827,7 @@ function applyDigitToSelection(digit, forcePencil = false) {
           ? `Added ${digit} to ${addedCount} cell${addedCount === 1 ? "" : "s"}.`
         : `Pencil mark ${digit} toggled for ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`,
     );
+    schedulePuzzleSave("pencil");
     return;
   }
 
@@ -1726,6 +1870,7 @@ function applyDigitToSelection(digit, forcePencil = false) {
   if (clearedPeerNotes > 0) {
     updateStatus(`Placed ${digit} and removed matching pencil marks from ${clearedPeerNotes} peer cell${clearedPeerNotes === 1 ? "" : "s"}.`);
   }
+  schedulePuzzleSave("place");
 }
 function clearSelectedCells() {
   clearTransientHighlights();
@@ -1772,13 +1917,16 @@ function clearSelectedCells() {
 
   if (clearedValues > 0 && clearedNotes > 0) {
     updateStatus(`Cleared ${clearedValues} value${clearedValues === 1 ? "" : "s"} and ${clearedNotes} set${clearedNotes === 1 ? "" : "s"} of pencil marks.`);
+    schedulePuzzleSave("clear");
     return;
   }
   if (clearedValues > 0) {
     updateStatus(`Cleared ${clearedValues} value${clearedValues === 1 ? "" : "s"}.`);
+    schedulePuzzleSave("clear");
     return;
   }
   updateStatus(`Cleared pencil marks for ${clearedNotes} cell${clearedNotes === 1 ? "" : "s"}.`);
+  schedulePuzzleSave("clear");
 }
 function buildEditableCell(rowIndex, columnIndex, value) {
   const container = document.createElement("div");
@@ -2069,6 +2217,7 @@ async function loadPuzzle() {
     setHintAcceptState(false);
     fetchBestTime(currentDifficulty);
     updateStatus(`New ${data.difficulty} puzzle ready. Select a cell to begin. Hold Ctrl to select multiple cells.`);
+    schedulePuzzleSave("new-game");
   } catch (error) {
     updateStatus(`Could not load the puzzle (${error?.message ?? "network error"}).`);
   } finally {
