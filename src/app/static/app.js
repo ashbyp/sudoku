@@ -364,7 +364,7 @@ async function fetchCustomPuzzleList() {
     puzzles.forEach((puzzle) => {
       const option = document.createElement("option");
       option.value = String(puzzle.id);
-      option.textContent = puzzle.name;
+      option.textContent = puzzle.completed ? `${puzzle.name} ✓` : puzzle.name;
       customPuzzleSelect.appendChild(option);
     });
     customPuzzleSelect.disabled = puzzles.length === 0;
@@ -497,6 +497,9 @@ function handlePuzzleSolved() {
   lastHintAction = null;
   setHintAcceptState(false);
   schedulePuzzleSave("solved");
+  if (currentCustomPuzzleId) {
+    markCustomPuzzleComplete(currentCustomPuzzleId);
+  }
 }
 
 function blankGrid() {
@@ -1391,6 +1394,23 @@ async function uploadAvatar(file) {
     setAuthStatus("Avatar upload failed.", true);
   }
 }
+
+async function markCustomPuzzleComplete(puzzleId) {
+  if (!currentUser || !puzzleId) {
+    return;
+  }
+  try {
+    const response = await fetch(`/api/custom-puzzles/${puzzleId}/complete`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (response.ok) {
+      fetchCustomPuzzleList();
+    }
+  } catch (error) {
+    // Ignore completion errors.
+  }
+}
 async function refreshCurrentUser() {
   if (!authStatusElement) {
     return;
@@ -1718,6 +1738,7 @@ function updateBoardStatus() {
     }
     if (currentCustomPuzzleId) {
       saveCustomPuzzleSolution();
+      markCustomPuzzleComplete(currentCustomPuzzleId);
     }
     return;
   }

@@ -86,6 +86,18 @@ def init_db() -> None:
             );
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS custom_puzzle_completions (
+                user_id INTEGER NOT NULL,
+                puzzle_id INTEGER NOT NULL,
+                completed_at TEXT NOT NULL,
+                PRIMARY KEY (user_id, puzzle_id),
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(puzzle_id) REFERENCES custom_puzzles(id) ON DELETE CASCADE
+            );
+            """
+        )
         puzzle_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(custom_puzzles);").fetchall()
         }

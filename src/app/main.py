@@ -309,13 +309,26 @@ def list_custom_puzzles(user: dict[str, object] | None = Depends(get_current_use
     with get_db() as db:
         rows = db.execute(
             """
-            SELECT id, name, solution_json
+            SELECT custom_puzzles.id,
+                   custom_puzzles.name,
+                   custom_puzzles.solution_json,
+                   CASE WHEN custom_puzzle_completions.user_id IS NULL THEN 0 ELSE 1 END AS completed
             FROM custom_puzzles
+            LEFT JOIN custom_puzzle_completions
+              ON custom_puzzles.id = custom_puzzle_completions.puzzle_id
+             AND custom_puzzle_completions.user_id = ?
             ORDER BY name ASC
             """
+            ,
+            (user["id"],),
         ).fetchall()
     puzzles = [
-        {"id": row["id"], "name": row["name"], "has_solution": row["solution_json"] is not None}
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "has_solution": row["solution_json"] is not None,
+            "completed": bool(row["completed"]),
+        }
         for row in rows
     ]
     return {"puzzles": puzzles}
@@ -389,6 +402,31 @@ def save_custom_puzzle_solution(
             (json.dumps(solution), now, puzzle_id),
         )
 
+    return {"status": "ok"}
+
+
+@app.post("/api/custom-puzzles/{puzzle_id}/complete")
+def complete_custom_puzzle(
+    puzzle_id: int,
+    user: dict[str, object] | None = Depends(get_current_user),
+) -> dict[str, object]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    now = datetime.now(timezone.utc).isoformat()
+    with get_db() as db:
+        row = db.execute(
+            "SELECT id FROM custom_puzzles WHERE id = ?",
+            (puzzle_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Custom puzzle not found.")
+        db.execute(
+            """
+            INSERT OR IGNORE INTO custom_puzzle_completions (user_id, puzzle_id, completed_at)
+            VALUES (?, ?, ?)
+            """,
+            (user["id"], puzzle_id, now),
+        )
     return {"status": "ok"}
 
 
