@@ -19,6 +19,24 @@
       </section>
 
       <section class="panel admin-panel">
+        <div class="admin-import">
+          <div class="admin-import-actions">
+            <button id="admin-paste-image" type="button" class="control-muted">Paste snip image</button>
+            <button id="admin-upload-image" type="button" class="control-muted">Upload image</button>
+            <button id="admin-clear-image" type="button" class="control-muted">Clear image</button>
+            <button id="admin-auto-transcribe" type="button" class="control-muted">Auto-transcribe</button>
+            <button id="admin-image-entry" type="button" class="control-muted">Image entry: Off</button>
+            <input id="admin-image-input" type="file" accept="image/*" class="hidden" />
+          </div>
+          <p class="muted">
+            Use Windows Snipping Tool to copy a puzzle image, then click "Paste snip image" (or press Ctrl+V).
+          </p>
+          <div id="admin-image-preview-wrap" class="admin-image-preview-wrap hidden">
+            <img id="admin-image-preview" class="admin-image-preview" alt="Imported puzzle screenshot preview" />
+            <canvas id="admin-image-overlay" class="admin-image-overlay"></canvas>
+          </div>
+        </div>
+
         <div class="admin-fields">
           <label class="auth-field">
             <span>Puzzle name</span>
@@ -61,6 +79,7 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
     <script src="/static/admin.js" defer></script>
   </body>
 </html>

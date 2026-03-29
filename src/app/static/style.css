@@ -1092,6 +1092,42 @@ body.celebration-bg::after {
   margin-bottom: 18px;
 }
 
+.admin-import {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.admin-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-image-preview-wrap {
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  padding: 8px;
+  background: var(--panel);
+  position: relative;
+}
+
+.admin-image-preview {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 10px;
+  display: block;
+}
+
+.admin-image-overlay {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  pointer-events: none;
+}
+
 .admin-fields {
   display: grid;
   gap: 12px;
