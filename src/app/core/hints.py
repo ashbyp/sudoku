@@ -24,13 +24,6 @@ def _detect_xwing(cand: dict[tuple[int, int], set[int]]) -> dict[str, object] | 
             rows[r].setdefault(d, []).append(c)
             cols[c].setdefault(d, []).append(r)
 
-    def pairs_for_digit(mapping):
-        return {
-            (line, tuple(sorted(cols)))
-            for line, digits in mapping.items()
-            for cols in (digits.get(2) and [])
-        }
-
     def row_pairs(digit):
         result = []
         for r in range(9):
@@ -60,21 +53,27 @@ def _detect_xwing(cand: dict[tuple[int, int], set[int]]) -> dict[str, object] | 
                 for c in cs1:
                     if (r, c) in cand and digit in cand[(r, c)]:
                         eliminate.append((r, c))
-            if eliminate:
+            highlights = [
+                {"row": r1, "column": c1, "kind": "focus"},
+                {"row": r1, "column": c2, "kind": "focus"},
+                {"row": r2, "column": c1, "kind": "focus"},
+                {"row": r2, "column": c2, "kind": "focus"},
+            ]
+            eliminates = [{"row": r, "column": c, "kind": "elim"} for r, c in eliminate[:6]]
+            cells = [{"row": r, "column": c} for r, c in eliminate]
+            if cells:
                 message = (
                     f"X-wing: digit {digit} occupies columns {c1 + 1} and {c2 + 1} on rows {r1 + 1} and {r2 + 1}. "
                     "You can remove it from those columns elsewhere."
                 )
-                highlights = [{"row": r1, "column": c1, "kind": "focus"},
-                              {"row": r1, "column": c2, "kind": "focus"},
-                              {"row": r2, "column": c1, "kind": "focus"},
-                              {"row": r2, "column": c2, "kind": "focus"}]
-                eliminates = [{"row": r, "column": c, "kind": "elim"} for r, c in eliminate[:6]]
-                return {
-                    "message": message,
-                    "highlights": highlights + eliminates,
-                    "action": {"type": "note-remove", "digit": digit, "cells": eliminate},
-                }
+                action: dict[str, object] | None = {"type": "note-remove", "digit": digit, "cells": cells}
+            else:
+                message = (
+                    f"X-wing pattern found for digit {digit} in rows {r1 + 1}/{r2 + 1} and columns {c1 + 1}/{c2 + 1}. "
+                    "No immediate eliminations are visible yet."
+                )
+                action = None
+            return {"message": message, "highlights": highlights + eliminates, "action": action}
         col_pairs_list = col_pairs(digit)
         for (c1, rs1), (c2, rs2) in combinations(col_pairs_list, 2):
             if rs1 != rs2:
@@ -87,21 +86,27 @@ def _detect_xwing(cand: dict[tuple[int, int], set[int]]) -> dict[str, object] | 
                 for r in rs1:
                     if (r, c) in cand and digit in cand[(r, c)]:
                         eliminate.append((r, c))
-            if eliminate:
+            highlights = [
+                {"row": r1, "column": c1, "kind": "focus"},
+                {"row": r1, "column": c2, "kind": "focus"},
+                {"row": r2, "column": c1, "kind": "focus"},
+                {"row": r2, "column": c2, "kind": "focus"},
+            ]
+            eliminates = [{"row": r, "column": c, "kind": "elim"} for r, c in eliminate[:6]]
+            cells = [{"row": r, "column": c} for r, c in eliminate]
+            if cells:
                 message = (
                     f"X-wing: digit {digit} occupies rows {r1 + 1} and {r2 + 1} on columns {c1 + 1} and {c2 + 1}. "
                     "You can remove it from those rows elsewhere."
                 )
-                highlights = [{"row": r1, "column": c1, "kind": "focus"},
-                              {"row": r1, "column": c2, "kind": "focus"},
-                              {"row": r2, "column": c1, "kind": "focus"},
-                              {"row": r2, "column": c2, "kind": "focus"}]
-                eliminates = [{"row": r, "column": c, "kind": "elim"} for r, c in eliminate[:6]]
-                return {
-                    "message": message,
-                    "highlights": highlights + eliminates,
-                    "action": {"type": "note-remove", "digit": digit, "cells": eliminate},
-                }
+                action: dict[str, object] | None = {"type": "note-remove", "digit": digit, "cells": cells}
+            else:
+                message = (
+                    f"X-wing pattern found for digit {digit} in columns {c1 + 1}/{c2 + 1} and rows {r1 + 1}/{r2 + 1}. "
+                    "No immediate eliminations are visible yet."
+                )
+                action = None
+            return {"message": message, "highlights": highlights + eliminates, "action": action}
     return None
 
 def _solve_xwing_hint(cand: dict[tuple[int, int], set[int]]) -> dict[str, object] | None:
@@ -133,6 +138,28 @@ def _build_candidate_map_with_notes(board: Grid, notes: list[list[list[int]]] | 
     return _build_candidate_map(board)
 
 
+def _notes_allow_placement(
+    note_mask: dict[tuple[int, int], set[int]],
+    row: int,
+    column: int,
+    digit: int,
+) -> bool:
+    shown = note_mask.get((row, column))
+    if not shown:
+        return True
+    return len(shown) == 1 and digit in shown
+
+
+def _notes_show_only(
+    note_mask: dict[tuple[int, int], set[int]],
+    positions: list[tuple[int, int]],
+    allowed: set[int],
+) -> bool:
+    return bool(positions) and all(
+        pos in note_mask and note_mask.get(pos, set()).issubset(allowed) for pos in positions
+    )
+
+
 def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[str, object]:
     cand = _build_candidate_map_with_notes(board, notes)
     note_mask = _notes_mask(notes)
@@ -152,17 +179,7 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
     singles = [((r, c), next(iter(opts))) for (r, c), opts in cand.items() if len(opts) == 1]
     if singles:
         (r, c), d = singles[0]
-        if note_mask and (r, c) in note_mask:
-            shown = note_mask.get((r, c), set())
-            if not (len(shown) == 1 and d in shown):
-                singles = []
-            else:
-                return {
-                    "message": f"Naked single: {_coord(r, c)} can only be {d}.",
-                    "highlights": [{"row": r, "column": c, "kind": "focus"}],
-                    "action": {"type": "place", "row": r, "column": c, "digit": d},
-                }
-        if not note_mask or (r, c) not in note_mask:
+        if _notes_allow_placement(note_mask, r, c, d):
             return {
                 "message": f"Naked single: {_coord(r, c)} can only be {d}.",
                 "highlights": [{"row": r, "column": c, "kind": "focus"}],
@@ -181,6 +198,8 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
             for d, positions in positions_by_digit.items():
                 if len(positions) == 1:
                     r, c = positions[0]
+                    if note_mask and not _notes_allow_placement(note_mask, r, c, d):
+                        continue
                     unit_label = f"{unit_name} {idx + 1}"
                     if note_mask:
                         note_positions = [
@@ -418,6 +437,9 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                 pos2 = positions_by_digit[d2]
                 if len(pos1) == 2 and pos1 == pos2:
                     (r1, c1), (r2, c2) = pos1
+                    allowed = {d1, d2}
+                    if all(cand.get(pos, set()).issubset(allowed) for pos in pos1):
+                        continue
                     if note_mask:
                         note_pairs = [
                             (rr, cc)
@@ -425,6 +447,8 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                             if note_mask.get((rr, cc), set()) == {d1, d2}
                         ]
                         if note_pairs and sorted(note_pairs) != sorted(pos1):
+                            continue
+                        if _notes_show_only(note_mask, pos1, allowed):
                             continue
                     unit_label = f"{unit_name} {idx + 1}"
                     return {
@@ -459,7 +483,15 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                     opts = cand.get(pos, set())
                     if opts & union:
                         eliminations.append(pos)
+                if note_mask:
+                    eliminations = [
+                        (rr, cc)
+                        for rr, cc in eliminations
+                        if note_mask.get((rr, cc), set()) & union
+                    ]
                 if not eliminations and all(cand.get(pos, set()) == union for pos in (a, b, c)):
+                    continue
+                if note_mask and not eliminations:
                     continue
                 unit_label = f"{unit_name} {idx + 1}"
                 (r1, c1), (r2, c2), (r3, c3) = a, b, c
@@ -497,7 +529,10 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
                 union = set(pos1) | set(pos2) | set(pos3)
                 if len(union) != 3:
                     continue
-                if all(cand.get(pos, set()).issubset({d1, d2, d3}) for pos in union):
+                allowed = {d1, d2, d3}
+                if all(cand.get(pos, set()).issubset(allowed) for pos in union):
+                    continue
+                if note_mask and _notes_show_only(note_mask, sorted(union), allowed):
                     continue
                 unit_label = f"{unit_name} {idx + 1}"
                 (r1, c1), (r2, c2), (r3, c3) = sorted(union)
@@ -517,17 +552,41 @@ def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[st
     # 9) X-wing, last ditch.
     xwing_hint = _solve_xwing_hint(cand)
     if xwing_hint:
-        if note_mask and xwing_hint.get("action", {}).get("type") == "note-remove":
-            digit = xwing_hint.get("action", {}).get("digit")
-            cells = xwing_hint.get("action", {}).get("cells", [])
-            filtered = [
-                (cell["row"], cell["column"])
-                for cell in cells
-                if digit in note_mask.get((cell["row"], cell["column"]), set())
+        action = xwing_hint.get("action") or {}
+        if action.get("type") == "note-remove":
+            digit = action.get("digit")
+            raw_cells = action.get("cells", [])
+            cells = [
+                {"row": int(cell["row"]), "column": int(cell["column"])}
+                for cell in raw_cells
+                if isinstance(cell, dict) and "row" in cell and "column" in cell
             ]
-            if not filtered:
-                return {"message": "No hints available.", "highlights": [], "action": None}
-        return xwing_hint
+            if note_mask:
+                cells = [
+                    cell
+                    for cell in cells
+                    if digit in note_mask.get((cell["row"], cell["column"]), set())
+                ]
+            if cells:
+                focus = [
+                    highlight
+                    for highlight in xwing_hint.get("highlights", [])
+                    if isinstance(highlight, dict) and highlight.get("kind") == "focus"
+                ]
+                elim_allowed = {(cell["row"], cell["column"]) for cell in cells}
+                elim = [
+                    highlight
+                    for highlight in xwing_hint.get("highlights", [])
+                    if isinstance(highlight, dict)
+                    and highlight.get("kind") == "elim"
+                    and (highlight.get("row"), highlight.get("column")) in elim_allowed
+                ]
+                return {
+                    "message": xwing_hint.get("message", "X-wing found."),
+                    "highlights": focus + elim,
+                    "action": {"type": "note-remove", "digit": digit, "cells": cells},
+                }
+        # Skip non-actionable X-wing hints and continue to fallback guidance.
 
     # Fallback: pick a cell with the fewest candidates.
     if cand:
