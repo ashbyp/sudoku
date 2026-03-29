@@ -1,3 +1,14 @@
+import {
+  cloneGrid,
+  formatDuration,
+  setStoredEmail,
+  setStoredTheme,
+  storedEmail,
+  storedTheme,
+  systemTheme,
+} from "/static/js/app-utils.js";
+import { detailMessage, fetchJson } from "/static/js/api-client.js";
+
 const boardElement = document.querySelector("#board");
 const numberPadElement = document.querySelector("#number-pad");
 const highlightPaletteElement = document.querySelector("#highlight-palette");
@@ -76,49 +87,6 @@ let lastHintAction = null;
 let saveTimerId = null;
 let isRestoringSave = false;
 
-function systemTheme() {
-  if (typeof window.matchMedia !== "function") {
-    return "light";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function storedTheme() {
-  try {
-    const value = window.localStorage?.getItem(THEME_STORAGE_KEY);
-    if (["light", "dark", "shock"].includes(value)) {
-      return value;
-    }
-  } catch (error) {
-    // Ignore storage issues (private mode, blocked, etc).
-  }
-  return null;
-}
-
-function setStoredTheme(theme) {
-  try {
-    window.localStorage?.setItem(THEME_STORAGE_KEY, theme);
-  } catch (error) {
-    // Ignore storage issues.
-  }
-}
-
-function storedEmail() {
-  try {
-    return window.localStorage?.getItem(EMAIL_STORAGE_KEY) || "";
-  } catch (error) {
-    return "";
-  }
-}
-
-function setStoredEmail(value) {
-  try {
-    window.localStorage?.setItem(EMAIL_STORAGE_KEY, value);
-  } catch (error) {
-    // Ignore storage issues.
-  }
-}
-
 function applyTheme(theme) {
   const valid = ["light", "dark", "shock"];
   const resolved = valid.includes(theme) ? theme : "light";
@@ -126,21 +94,6 @@ function applyTheme(theme) {
   if (themeToggleButton) {
     themeToggleButton.textContent = `Theme: ${resolved[0].toUpperCase()}${resolved.slice(1)}`;
   }
-}
-
-function cloneGrid(grid) {
-  return grid.map((row) => [...row]);
-}
-
-function formatDuration(totalSeconds) {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const seconds = safeSeconds % 60;
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function updateTimerDisplay(seconds) {
@@ -1157,18 +1110,17 @@ async function requestHint() {
   }
 
   try {
-    const response = await fetch("/api/hint", {
+    const { response, data } = await fetchJson("/api/hint", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ board: currentBoard(), notes: currentNotes() }),
     });
 
     if (!response.ok) {
-      const detail = await response.json().catch(() => null);
-      throw new Error(detail?.detail ?? "Could not fetch a hint.");
+      throw new Error(detailMessage(data, "Could not fetch a hint."));
     }
 
-    const hint = await response.json();
+    const hint = data;
     const action = hint?.action ?? null;
     applyHintHighlights(hint?.highlights);
     applyHintAction(action);
@@ -1457,7 +1409,7 @@ async function handleRegister() {
   }
 
   try {
-    const response = await fetch("/api/register", {
+    const { response, data } = await fetchJson("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -1465,14 +1417,13 @@ async function handleRegister() {
     });
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      setAuthStatus(body.detail ?? "Registration failed.", true);
+      setAuthStatus(detailMessage(data, "Registration failed."), true);
       return;
     }
 
-    currentUser = await response.json();
+    currentUser = data;
     authPasswordInput.value = "";
-    setStoredEmail(email);
+    setStoredEmail(EMAIL_STORAGE_KEY, email);
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
     resetIdleBoard();
@@ -1496,7 +1447,7 @@ async function handleLogin() {
   }
 
   try {
-    const response = await fetch("/api/login", {
+    const { response, data } = await fetchJson("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -1504,14 +1455,13 @@ async function handleLogin() {
     });
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      setAuthStatus(body.detail ?? "Login failed.", true);
+      setAuthStatus(detailMessage(data, "Login failed."), true);
       return;
     }
 
-    currentUser = await response.json();
+    currentUser = data;
     authPasswordInput.value = "";
-    setStoredEmail(email);
+    setStoredEmail(EMAIL_STORAGE_KEY, email);
     setAuthStatus(`Signed in as ${currentUser.email}.`);
     updateAuthUI();
     await loadSavedPuzzle();
@@ -2203,25 +2153,16 @@ async function loadPuzzle() {
   setHintAcceptState(false);
 
   try {
-    const response = await fetch(`/api/puzzle?difficulty=${difficultyElement.value}`, {
+    const { response, data } = await fetchJson(`/api/puzzle?difficulty=${difficultyElement.value}`, {
       headers: { "Accept": "application/json" },
     });
 
     if (!response.ok) {
-      let detail = "";
-      try {
-        const body = await response.json();
-        detail = body?.detail ? ` (${body.detail})` : "";
-      } catch (error) {
-        const text = await response.text().catch(() => "");
-        detail = text ? ` (${text.slice(0, 120)})` : "";
-      }
+      const detail = data?.detail ? ` (${data.detail})` : "";
 
       updateStatus(`Could not load the puzzle (HTTP ${response.status}).${detail}`);
       return;
     }
-
-    const data = await response.json();
 
     if (!data || !Array.isArray(data.puzzle) || data.puzzle.length !== 9) {
       updateStatus("Could not load the puzzle (unexpected response).");
@@ -2395,12 +2336,12 @@ if (userAvatarWrap && userAvatarInput) {
 }
 
 // Theme: prefer stored override, otherwise follow the system setting.
-applyTheme(storedTheme() ?? systemTheme());
+applyTheme(storedTheme(THEME_STORAGE_KEY) ?? systemTheme());
 
 if (typeof window.matchMedia === "function") {
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   media.addEventListener?.("change", () => {
-    if (storedTheme() == null) {
+    if (storedTheme(THEME_STORAGE_KEY) == null) {
       applyTheme(systemTheme());
     }
   });
@@ -2411,14 +2352,14 @@ if (themeToggleButton) {
     const current = document.documentElement.dataset.theme || "light";
     const order = ["light", "dark", "shock"];
     const next = order[(order.indexOf(current) + 1) % order.length];
-    setStoredTheme(next);
+    setStoredTheme(THEME_STORAGE_KEY, next);
     applyTheme(next);
   });
 }
 if (authEmailInput) {
-  authEmailInput.value = storedEmail();
+  authEmailInput.value = storedEmail(EMAIL_STORAGE_KEY);
   authEmailInput.addEventListener("input", () => {
-    setStoredEmail(authEmailInput.value.trim());
+    setStoredEmail(EMAIL_STORAGE_KEY, authEmailInput.value.trim());
   });
   authEmailInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
