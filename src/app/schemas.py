@@ -24,6 +24,7 @@ class PuzzleSavePayload(BaseModel):
     puzzle: list[list[int]] = Field(min_length=9, max_length=9)
     current: list[list[int]] = Field(min_length=9, max_length=9)
     notes: list[list[list[int]]] | None = None
+    center_notes: list[list[list[int]]] | None = None
     solution: list[list[int]] | None = None
     difficulty: str | None = None
     custom_puzzle_id: int | None = None

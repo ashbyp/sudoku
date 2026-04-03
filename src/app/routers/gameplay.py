@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.db import get_db
 from app.core.hints import get_hint
 from app.core.sudoku import generate_puzzle, validate_board
-from app.routers.deps import ensure_grid, ensure_notes, get_current_user, normalize_difficulty
+from app.routers.deps import ensure_center_notes, ensure_grid, ensure_notes, get_current_user, normalize_difficulty
 from app.schemas import BoardPayload, HintPayload, PuzzleSavePayload, TimePayload
 
 router = APIRouter()
@@ -136,6 +136,7 @@ def save_puzzle(
     current = ensure_grid(payload.current, "Current board")
     solution = ensure_grid(payload.solution, "Solution") if payload.solution is not None else None
     notes = ensure_notes(payload.notes)
+    center_notes = ensure_center_notes(payload.center_notes)
 
     state = {
         "puzzle": puzzle,
@@ -144,6 +145,7 @@ def save_puzzle(
         "difficulty": payload.difficulty,
         "custom_puzzle_id": payload.custom_puzzle_id,
         "has_solution": bool(payload.has_solution),
+        "center_notes": center_notes,
         "elapsed_seconds": int(payload.elapsed_seconds),
     }
 

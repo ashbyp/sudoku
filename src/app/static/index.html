@@ -117,7 +117,8 @@
           <aside class="side-panel">
             <div class="panel tool-panel">
               <div class="number-pad-wrap">
-                <button id="toggle-pencil" type="button" class="control-muted">Pencil mode: Off</button>
+                <button id="toggle-pencil" type="button" class="control-muted" aria-label="Toggle pencil mode" title="Toggle pencil mode. Temporary override: hold Ctrl while entering a digit.">Pencil mode: Off</button>
+                <button id="toggle-center" type="button" class="control-muted" aria-label="Toggle cell mode" title="Toggle cell mode. Temporary override: hold Shift while entering a digit.">Cell mode: Off</button>
                 <div id="number-pad" class="number-pad" aria-label="Number pad"></div>
                 <div id="highlight-palette" class="highlight-palette" role="group" aria-label="Cell highlight palette">
                   <button type="button" class="highlight-swatch" data-mark="amber" aria-label="Highlight selected cells amber" title="Highlight amber"></button>
@@ -134,9 +135,9 @@
                     <circle cx="15" cy="11.5" r="1.2"></circle>
                     <circle cx="11.5" cy="15" r="1.2"></circle>
                   </svg>
-                  <span>Cell notes</span>
+                  <span>Pencil marks</span>
                 </button>
-                <button id="auto-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Fill pencil marks with valid candidates for all empty cells" title="Fill pencil marks with valid candidates for all empty cells">
+                <button id="auto-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Fill all pencil marks with valid candidates for empty cells" title="Fill all pencil marks with valid candidates for empty cells">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <rect x="3.5" y="3.5" width="17" height="17" rx="2"></rect>
                     <path d="M8 8h8"></path>
@@ -146,10 +147,13 @@
                     <circle cx="6.2" cy="12" r="0.9"></circle>
                     <circle cx="6.2" cy="16" r="0.9"></circle>
                   </svg>
-                  <span>All notes</span>
+                  <span>All pencil marks</span>
                 </button>
-                <button id="clear-cell" class="clear-button control-muted" type="button">Clear cell</button>
-                <button id="clear-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Clear all pencil marks" title="Clear all pencil marks">
+                <button id="convert-notes" class="clear-button control-muted" type="button" aria-label="Convert selected pencil marks to cell notes" title="Convert selected pencil marks to cell notes (Ctrl+Q)">
+                  Pencil -> Cell
+                </button>
+                <button id="clear-cell" class="clear-button control-muted" type="button" aria-label="Clear selected cells" title="Clear selected cells (Backspace/Delete/0)">Clear cell</button>
+                <button id="clear-notes-all" class="clear-button control-muted icon-button" type="button" aria-label="Clear all pencil and cell notes" title="Clear all pencil and cell notes">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M7 16l4-10h2l4 10"></path>
                     <path d="M9 12h6"></path>
@@ -157,7 +161,7 @@
                   </svg>
                   <span>Clear notes</span>
                 </button>
-                <button id="undo-action" class="clear-button control-muted" type="button">Undo</button>
+                <button id="undo-action" class="clear-button control-muted" type="button" aria-label="Undo last action" title="Undo last action (Ctrl+Z)">Undo</button>
               </div>
             </div>
           </aside>

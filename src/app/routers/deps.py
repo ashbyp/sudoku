@@ -58,3 +58,11 @@ def ensure_notes(notes: list[list[list[int]]] | None) -> list[list[list[int]]]:
             normalized_row.append(digits)
         normalized.append(normalized_row)
     return normalized
+
+
+def ensure_center_notes(notes: list[list[list[int]]] | None) -> list[list[list[int]]]:
+    normalized = ensure_notes(notes)
+    for row in normalized:
+        for entry in row:
+            del entry[4:]
+    return normalized

@@ -249,6 +249,7 @@ body.celebration-bg::after {
 .clear-button,
 .pad-button,
 #toggle-pencil,
+#toggle-center,
 #undo-action,
 #auto-notes,
 #auto-notes-all {
@@ -264,6 +265,7 @@ body.celebration-bg::after {
 .clear-button,
 .pad-button,
 #toggle-pencil,
+#toggle-center,
 #undo-action,
 #auto-notes,
 #auto-notes-all {
@@ -278,6 +280,7 @@ body.celebration-bg::after {
 .controls button.control-muted,
 .clear-button.control-muted,
 #toggle-pencil.control-muted,
+#toggle-center.control-muted,
 #undo-action.control-muted,
 #auto-notes.control-muted,
 #auto-notes-all.control-muted {
@@ -288,7 +291,8 @@ body.celebration-bg::after {
 }
 
 .controls button.control-active,
-#toggle-pencil.control-active {
+#toggle-pencil.control-active,
+#toggle-center.control-active {
   background: var(--accent-strong);
   border-color: var(--accent-strong);
   color: white;
@@ -298,6 +302,7 @@ body.celebration-bg::after {
 .clear-button:hover,
 .pad-button:hover,
 #toggle-pencil:hover,
+#toggle-center:hover,
 #undo-action:hover,
 #auto-notes:hover,
 #auto-notes-all:hover {
@@ -308,6 +313,7 @@ body.celebration-bg::after {
 .controls button.control-muted:hover,
 .clear-button.control-muted:hover,
 #toggle-pencil.control-muted:hover,
+#toggle-center.control-muted:hover,
 #undo-action.control-muted:hover,
 #auto-notes.control-muted:hover,
 #auto-notes-all.control-muted:hover {
@@ -319,6 +325,7 @@ body.celebration-bg::after {
 .clear-button:active,
 .pad-button:active,
 #toggle-pencil:active,
+#toggle-center:active,
 #undo-action:active,
 #auto-notes:active,
 #auto-notes-all:active {
@@ -649,6 +656,7 @@ body.celebration-bg::after {
 
 .clear-button,
 #toggle-pencil,
+#toggle-center,
 #undo-action,
 #auto-notes,
 #auto-notes-all {
@@ -1005,6 +1013,23 @@ body.celebration-bg::after {
   color: var(--accent-strong);
   font-size: 0.85rem;
   letter-spacing: 0.02em;
+}
+
+.center-candidates {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  text-align: center;
+  color: var(--accent-strong);
+  font-size: clamp(0.5rem, 0.9vw, 0.82rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .user-avatar {

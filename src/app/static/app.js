@@ -18,6 +18,7 @@ const newGameButton = document.querySelector("#new-game");
 const resetBoardButton = document.querySelector("#reset-board");
 const showIncorrectButton = document.querySelector("#show-incorrect");
 const togglePencilButton = document.querySelector("#toggle-pencil");
+const toggleCenterButton = document.querySelector("#toggle-center");
 const solveBoardButton = document.querySelector("#solve-board");
 const autoNotesButton = document.querySelector("#auto-notes");
 const autoNotesAllButton = document.querySelector("#auto-notes-all");
@@ -26,6 +27,7 @@ const hintButton = document.querySelector("#hint");
 const hintAcceptButton = document.querySelector("#hint-accept");
 const undoActionButton = document.querySelector("#undo-action");
 const clearCellButton = document.querySelector("#clear-cell");
+const convertNotesButton = document.querySelector("#convert-notes");
 const completionBurstElement = document.querySelector("#completion-burst");
 const confettiFieldElement = document.querySelector("#confetti-field");
 const dismissCompletionButton = document.querySelector("#dismiss-completion");
@@ -61,6 +63,7 @@ let puzzle = [];
 let solution = [];
 let cells = [];
 let pencilMode = false;
+let centerMode = false;
 let selectedCells = new Set();
 let activeCell = null;
 let highlightedValue = null;
@@ -188,6 +191,7 @@ function collectPuzzleState() {
     puzzle: cloneGrid(puzzle),
     current: currentBoard(),
     notes: currentNotes(),
+    center_notes: currentCenterNotes(),
     solution: hasSolution ? cloneGrid(solution) : null,
     difficulty: currentDifficulty,
     custom_puzzle_id: currentCustomPuzzleId,
@@ -231,6 +235,7 @@ function restoreFromSave(data) {
 
   const current = data.current;
   const notes = Array.isArray(data.notes) ? data.notes : [];
+  const centerNotes = Array.isArray(data.center_notes) ? data.center_notes : [];
 
   current.forEach((row, rowIndex) => {
     row.forEach((value, columnIndex) => {
@@ -240,12 +245,28 @@ function restoreFromSave(data) {
       }
       cell.value = Number(value) || 0;
       cell.notes.clear();
+      cell.centerCandidates.clear();
       const noteRow = notes[rowIndex] ?? [];
       const noteEntry = noteRow[columnIndex] ?? [];
       if (Array.isArray(noteEntry)) {
         noteEntry.forEach((digit) => {
           if (Number.isFinite(digit) && digit >= 1 && digit <= 9) {
             cell.notes.add(Number(digit));
+          }
+        });
+      }
+      const centerRow = centerNotes[rowIndex] ?? [];
+      const centerEntry = centerRow[columnIndex] ?? [];
+      if (Array.isArray(centerEntry)) {
+        centerEntry.forEach((digit) => {
+          if (
+            Number.isFinite(digit)
+            && digit >= 1
+            && digit <= 9
+            && !cell.centerCandidates.has(Number(digit))
+            && cell.centerCandidates.size < 4
+          ) {
+            cell.centerCandidates.add(Number(digit));
           }
         });
       }
@@ -564,12 +585,25 @@ function currentNotes() {
   ));
 }
 
+function currentCenterNotes() {
+  return Array.from({ length: 9 }, (_, row) => (
+    Array.from({ length: 9 }, (_, column) => {
+      const cell = cells[row * 9 + column];
+      if (!cell || cell.value !== 0) {
+        return [];
+      }
+      return [...cell.centerCandidates].sort((a, b) => a - b);
+    })
+  ));
+}
+
 function snapshotCell(cell) {
   return {
     row: cell.row,
     column: cell.column,
     value: cell.value,
     notes: [...cell.notes],
+    centerCandidates: [...cell.centerCandidates],
     mark: cell.mark ?? null,
   };
 }
@@ -583,6 +617,7 @@ function restoreCell(snapshot) {
   if (!cell.fixed) {
     cell.value = snapshot.value;
     cell.notes = new Set(snapshot.notes ?? []);
+    cell.centerCandidates = new Set((snapshot.centerCandidates ?? []).slice(0, 4));
   }
 
   if ("mark" in snapshot) {
@@ -780,10 +815,25 @@ function updatePencilButton() {
   togglePencilButton.classList.toggle("control-muted", !pencilMode);
 }
 
+function updateCenterButton() {
+  if (!toggleCenterButton) {
+    return;
+  }
+  toggleCenterButton.textContent = `Cell mode: ${centerMode ? "On" : "Off"}`;
+  toggleCenterButton.classList.toggle("control-active", centerMode);
+  toggleCenterButton.classList.toggle("control-muted", !centerMode);
+}
+
 function updateNotesVisibility(cell) {
   cell.noteElements.forEach((noteElement, index) => {
     noteElement.classList.toggle("visible", cell.notes.has(index + 1));
   });
+}
+
+function updateCenterCandidatesVisibility(cell) {
+  const values = [...cell.centerCandidates].sort((a, b) => a - b);
+  cell.centerCandidatesElement.textContent = values.join(" ");
+  cell.centerCandidatesElement.hidden = cell.value !== 0 || values.length === 0;
 }
 
 function updateNumberPadAvailability() {
@@ -813,6 +863,7 @@ function syncCellDisplay(cell) {
   cell.container.classList.toggle("fixed", cell.fixed);
   cell.notesElement.hidden = cell.value !== 0;
   updateNotesVisibility(cell);
+  updateCenterCandidatesVisibility(cell);
   updateNumberPadAvailability();
 }
 
@@ -820,6 +871,7 @@ function setCellValue(cell, value) {
   cell.value = value;
   if (value !== 0) {
     cell.notes.clear();
+    cell.centerCandidates.clear();
   }
   syncCellDisplay(cell);
 }
@@ -1009,15 +1061,15 @@ function fillAutoNotes() {
   }
 
   if (editableCells.some((cell) => cell.value !== 0)) {
-    updateStatus("Cell notes only works on empty cells or cells that only contain pencil marks.");
+    updateStatus("Pencil marks only work on empty cells or cells that only contain pencil marks.");
     return;
   }
 
   applyAutoNotes(editableCells, {
-    historyLabel: "cell notes",
+    historyLabel: "pencil marks",
     clearSelection: true,
     noChangeMessage: "Selected cells already show the current possible pencil marks.",
-    successMessage: (count) => `Cell notes added for ${count} cell${count === 1 ? "" : "s"}.`,
+    successMessage: (count) => `Pencil marks added for ${count} cell${count === 1 ? "" : "s"}.`,
   });
 }
 
@@ -1043,7 +1095,7 @@ function fillAllAutoNotes() {
 
   if (changedCells.length) {
     pushHistory({
-      label: "all notes",
+      label: "all pencil marks",
       highlightedValue,
       cells: changedCells.map(snapshotCell),
     });
@@ -1060,7 +1112,7 @@ function fillAllAutoNotes() {
   refreshMatchHighlights();
   finalizeBatchSelection();
   const emptyCells = editableCells.filter((cell) => cell.value === 0).length;
-  updateStatus(`All notes rebuilt for ${emptyCells} empty cell${emptyCells === 1 ? "" : "s"}.`);
+  updateStatus(`All pencil marks rebuilt for ${emptyCells} empty cell${emptyCells === 1 ? "" : "s"}.`);
   schedulePuzzleSave("all-notes");
 }
 
@@ -1073,9 +1125,9 @@ function clearAllNotes() {
     return;
   }
 
-  const changedCells = editableCells.filter((cell) => cell.notes.size > 0);
+  const changedCells = editableCells.filter((cell) => cell.notes.size > 0 || cell.centerCandidates.size > 0);
   if (!changedCells.length) {
-    updateStatus("There are no notes to clear.");
+    updateStatus("There are no pencil or cell notes to clear.");
     return;
   }
 
@@ -1087,13 +1139,63 @@ function clearAllNotes() {
 
   changedCells.forEach((cell) => {
     cell.notes.clear();
+    cell.centerCandidates.clear();
     syncCellDisplay(cell);
   });
 
   refreshMatchHighlights();
   finalizeBatchSelection();
-  updateStatus(`Cleared notes from ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
+  updateStatus(`Cleared pencil and cell notes from ${changedCells.length} cell${changedCells.length === 1 ? "" : "s"}.`);
   schedulePuzzleSave("clear-notes");
+}
+
+function convertSelectedPencilToCellNotes() {
+  clearTransientHighlights();
+
+  if (selectedCells.size === 0) {
+    updateStatus("Select one or more cells first.");
+    return;
+  }
+
+  const editableCells = selectedEditableCells();
+  if (!editableCells.length) {
+    updateStatus("Selected clue cells are locked.");
+    return;
+  }
+
+  const targetCells = editableCells.filter((cell) => cell.value === 0 && cell.notes.size > 0);
+  if (!targetCells.length) {
+    updateStatus("Selected cells have no pencil marks to convert.");
+    return;
+  }
+
+  let truncatedCells = 0;
+  pushHistory({
+    label: "convert pencil marks",
+    highlightedValue,
+    cells: targetCells.map(snapshotCell),
+  });
+
+  targetCells.forEach((cell) => {
+    const ordered = [...cell.notes].sort((a, b) => a - b);
+    if (ordered.length > 4) {
+      truncatedCells += 1;
+    }
+    cell.centerCandidates = new Set(ordered.slice(0, 4));
+    cell.notes.clear();
+    syncCellDisplay(cell);
+  });
+
+  refreshMatchHighlights();
+  finalizeBatchSelection();
+  if (truncatedCells > 0) {
+    updateStatus(
+      `Converted pencil marks to cell notes in ${targetCells.length} cell${targetCells.length === 1 ? "" : "s"} (${truncatedCells} trimmed to 4).`,
+    );
+  } else {
+    updateStatus(`Converted pencil marks to cell notes in ${targetCells.length} cell${targetCells.length === 1 ? "" : "s"}.`);
+  }
+  schedulePuzzleSave("convert-notes");
 }
 
 async function requestHint() {
@@ -1721,7 +1823,7 @@ function undoLastAction() {
   updateStatus(`Undid ${action.label}.`);
 }
 
-function applyDigitToSelection(digit, forcePencil = false) {
+function applyDigitToSelection(digit, forcePencil = false, forceCenter = false) {
   clearTransientHighlights();
   clearIncorrectStates();
 
@@ -1742,10 +1844,45 @@ function applyDigitToSelection(digit, forcePencil = false) {
     return;
   }
 
-  const usePencilMode = pencilMode || forcePencil;
+  const usePencilMode = forceCenter ? false : (pencilMode || forcePencil);
+  const useCenterMode = forceCenter || (centerMode && !usePencilMode);
   const changedCells = editableCells.filter((cell) => (usePencilMode ? cell.value === 0 : true));
   if (!changedCells.length) {
     updateStatus(usePencilMode ? "Selected cells cannot take pencil marks right now." : "Selected clue cells are locked.");
+    return;
+  }
+
+  if (useCenterMode) {
+    const centerCells = changedCells.filter((cell) => cell.value === 0);
+    if (!centerCells.length) {
+      updateStatus("Selected cells cannot take cell candidates right now.");
+      return;
+    }
+    let changedCount = 0;
+    pushHistory({
+      label: "cell candidates",
+      highlightedValue,
+      cells: centerCells.map(snapshotCell),
+    });
+    centerCells.forEach((cell) => {
+      if (cell.centerCandidates.has(digit)) {
+        cell.centerCandidates.delete(digit);
+        changedCount += 1;
+      } else if (cell.centerCandidates.size < 4) {
+        cell.centerCandidates.add(digit);
+        changedCount += 1;
+      }
+      syncCellDisplay(cell);
+    });
+    if (!changedCount) {
+      historyStack.pop();
+      updateStatus("Cell candidates are full (max 4) in selected cells.");
+      return;
+    }
+    refreshMatchHighlights();
+    refreshSelectionStyles();
+    updateStatus(`Cell candidate ${digit} updated in ${changedCount} cell${changedCount === 1 ? "" : "s"}.`);
+    schedulePuzzleSave("center-candidates");
     return;
   }
 
@@ -1858,14 +1995,17 @@ function clearSelectedCells() {
     return;
   }
 
-  const changedCells = editableCells.filter((cell) => cell.value !== 0 || cell.notes.size > 0);
+  const changedCells = editableCells.filter((cell) => (
+    cell.value !== 0 || cell.notes.size > 0 || cell.centerCandidates.size > 0
+  ));
   if (!changedCells.length) {
     updateStatus("There is nothing to clear in the selected cells.");
     return;
   }
 
   const clearedValues = changedCells.filter((cell) => cell.value !== 0).length;
-  const clearedNotes = changedCells.length - clearedValues;
+  const clearedNotes = changedCells.filter((cell) => cell.value === 0 && cell.notes.size > 0).length;
+  const clearedCenters = changedCells.filter((cell) => cell.value === 0 && cell.centerCandidates.size > 0).length;
 
   pushHistory({
     label: "cell contents",
@@ -1880,14 +2020,22 @@ function clearSelectedCells() {
     }
 
     cell.notes.clear();
+    cell.centerCandidates.clear();
     syncCellDisplay(cell);
   });
   refreshMatchHighlights();
   finalizeBatchSelection();
   updateBoardStatus();
 
-  if (clearedValues > 0 && clearedNotes > 0) {
-    updateStatus(`Cleared ${clearedValues} value${clearedValues === 1 ? "" : "s"} and ${clearedNotes} set${clearedNotes === 1 ? "" : "s"} of pencil marks.`);
+  if (clearedValues > 0 && (clearedNotes > 0 || clearedCenters > 0)) {
+    const noteParts = [];
+    if (clearedNotes > 0) {
+      noteParts.push(`${clearedNotes} set${clearedNotes === 1 ? "" : "s"} of pencil marks`);
+    }
+    if (clearedCenters > 0) {
+      noteParts.push(`${clearedCenters} set${clearedCenters === 1 ? "" : "s"} of cell candidates`);
+    }
+    updateStatus(`Cleared ${clearedValues} value${clearedValues === 1 ? "" : "s"} and ${noteParts.join(" plus ")}.`);
     schedulePuzzleSave("clear");
     return;
   }
@@ -1896,7 +2044,13 @@ function clearSelectedCells() {
     schedulePuzzleSave("clear");
     return;
   }
-  updateStatus(`Cleared pencil marks for ${clearedNotes} cell${clearedNotes === 1 ? "" : "s"}.`);
+  if (clearedNotes > 0 && clearedCenters > 0) {
+    updateStatus(`Cleared pencil marks and cell candidates in ${Math.max(clearedNotes, clearedCenters)} cell${Math.max(clearedNotes, clearedCenters) === 1 ? "" : "s"}.`);
+  } else if (clearedNotes > 0) {
+    updateStatus(`Cleared pencil marks for ${clearedNotes} cell${clearedNotes === 1 ? "" : "s"}.`);
+  } else {
+    updateStatus(`Cleared cell candidates for ${clearedCenters} cell${clearedCenters === 1 ? "" : "s"}.`);
+  }
   schedulePuzzleSave("clear");
 }
 function buildEditableCell(rowIndex, columnIndex, value) {
@@ -1936,17 +2090,24 @@ function buildEditableCell(rowIndex, columnIndex, value) {
     return note;
   });
 
+  const centerCandidatesElement = document.createElement("div");
+  centerCandidatesElement.className = "center-candidates";
+  centerCandidatesElement.setAttribute("aria-hidden", "true");
+  centerCandidatesElement.hidden = true;
+
   const cell = {
     row: rowIndex,
     column: columnIndex,
     value,
     fixed: value !== 0,
     notes: new Set(),
+    centerCandidates: new Set(),
     mark: null,
     container,
     input,
     notesElement,
     noteElements,
+    centerCandidatesElement,
   };
 
   container.addEventListener("click", (event) => {
@@ -2035,7 +2196,8 @@ function buildEditableCell(rowIndex, columnIndex, value) {
       const digit = Number(event.key);
       const forcedByHint = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
       const ctrlPencil = event.ctrlKey || event.metaKey;
-      applyDigitToSelection(digit, forcedByHint || ctrlPencil);
+      const shiftCenter = event.shiftKey;
+      applyDigitToSelection(digit, forcedByHint || ctrlPencil, shiftCenter);
       return;
     }
 
@@ -2055,6 +2217,7 @@ function buildEditableCell(rowIndex, columnIndex, value) {
   });
 
   container.appendChild(notesElement);
+  container.appendChild(centerCandidatesElement);
   container.appendChild(input);
   syncCellDisplay(cell);
 
@@ -2071,7 +2234,11 @@ function renderNumberPad() {
     button.textContent = String(digit);
     button.addEventListener("click", (event) => {
       const forcedByHint = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
-      applyDigitToSelection(digit, forcedByHint || event.ctrlKey || event.metaKey);
+      applyDigitToSelection(
+        digit,
+        forcedByHint || event.ctrlKey || event.metaKey,
+        event.shiftKey,
+      );
     });
     numberPadElement.appendChild(button);
     padButtons.set(digit, button);
@@ -2223,6 +2390,27 @@ document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undoLastAction();
+    return;
+  }
+
+  if (
+    !event.shiftKey
+    && (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && event.key.toLowerCase() === "q"
+  ) {
+    const target = event.target;
+    if (target instanceof Element) {
+      const typingInNonBoardInput = (
+        (target.closest("input, textarea, select, [contenteditable=\"true\"]") !== null)
+        && !target.closest(".board")
+      );
+      if (typingInNonBoardInput) {
+        return;
+      }
+    }
+    event.preventDefault();
+    convertSelectedPencilToCellNotes();
   }
 });
 
@@ -2234,10 +2422,26 @@ if (togglePencilButton) {
   togglePencilButton.addEventListener("click", () => {
     clearTransientHighlights();
     pencilMode = !pencilMode;
+    if (pencilMode) {
+      centerMode = false;
+      updateCenterButton();
+    }
     updatePencilButton();
     if (pencilMode) {
       updateStatus("Pencil mode is on.");
     }
+  });
+}
+if (toggleCenterButton) {
+  toggleCenterButton.addEventListener("click", () => {
+    clearTransientHighlights();
+    centerMode = !centerMode;
+    if (centerMode) {
+      pencilMode = false;
+      updatePencilButton();
+      updateStatus("Cell mode is on.");
+    }
+    updateCenterButton();
   });
 }
 if (autoNotesButton) {
@@ -2260,6 +2464,9 @@ if (undoActionButton) {
 }
 if (clearCellButton) {
   clearCellButton.addEventListener("click", clearSelectedCells);
+}
+if (convertNotesButton) {
+  convertNotesButton.addEventListener("click", convertSelectedPencilToCellNotes);
 }
 if (highlightPaletteElement) {
   highlightPaletteElement.addEventListener("click", (event) => {
@@ -2390,6 +2597,7 @@ if (confettiFieldElement) {
 
 renderNumberPad();
 updatePencilButton();
+updateCenterButton();
 resetIdleBoard();
 setHintAcceptState(false);
 refreshCurrentUser().finally(() => {
