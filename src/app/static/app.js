@@ -70,7 +70,6 @@ let activeCell = null;
 let highlightedValue = null;
 let historyStack = [];
 let padButtons = new Map();
-let additiveSelectionModifierActive = false;
 
 let hasCelebratedCompletion = false;
 let isLoadingPuzzle = false;
@@ -661,10 +660,7 @@ function clearHintHighlights() {
 }
 
 function clearSelection(clearHint = true) {
-  cells.forEach((cell) => {
-    cell.container.classList.remove("selected");
-    cell.container.setAttribute("aria-selected", "false");
-  });
+  selectedCells.forEach((cell) => setSelectionVisualState(cell, false));
   selectedCells = new Set();
   activeCell = null;
   hintPencilDirective = null;
@@ -705,10 +701,20 @@ function programmaticSelectCells(nextCells) {
     return;
   }
 
-  clearSelection(false);
-  selectedCells = new Set(list);
+  const previousSelection = selectedCells;
+  const nextSelection = new Set(list);
+  previousSelection.forEach((cell) => {
+    if (!nextSelection.has(cell)) {
+      setSelectionVisualState(cell, false);
+    }
+  });
+  nextSelection.forEach((cell) => {
+    if (!previousSelection.has(cell)) {
+      setSelectionVisualState(cell, true);
+    }
+  });
+  selectedCells = nextSelection;
   activeCell = list[0];
-  refreshSelectionStyles();
   if (activeCell?.input) {
     activeCell.input.focus();
   }
@@ -808,8 +814,7 @@ function isAdditiveSelectionEvent(event) {
   return Boolean(
     event?.ctrlKey
     || event?.metaKey
-    || event?.shiftKey
-    || additiveSelectionModifierActive,
+    || event?.shiftKey,
   );
 }
 
@@ -1742,9 +1747,14 @@ function selectCell(cell, appendSelection = false) {
     return;
   }
 
+  selectedCells.forEach((selectedCell) => {
+    if (selectedCell !== cell) {
+      setSelectionVisualState(selectedCell, false);
+    }
+  });
   selectedCells = new Set([cell]);
   activeCell = cell;
-  refreshSelectionStyles();
+  setSelectionVisualState(cell, true);
   cell.input.focus();
   syncHighlightFromCell(activeCell);
 }
@@ -2399,10 +2409,6 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Control" || event.key === "Meta" || event.key === "Shift") {
-    additiveSelectionModifierActive = true;
-  }
-
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undoLastAction();
@@ -2428,16 +2434,6 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     convertSelectedPencilToCellNotes();
   }
-});
-
-document.addEventListener("keyup", (event) => {
-  if (event.key === "Control" || event.key === "Meta" || event.key === "Shift") {
-    additiveSelectionModifierActive = event.ctrlKey || event.metaKey || event.shiftKey;
-  }
-});
-
-window.addEventListener("blur", () => {
-  additiveSelectionModifierActive = false;
 });
 
 if (togglePencilButton) {
