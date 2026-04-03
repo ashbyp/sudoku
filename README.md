@@ -27,6 +27,22 @@ uvicorn app.main:app --reload --port 8765
 
 4. Open [http://127.0.0.1:8765](http://127.0.0.1:8765).
 
+## Docker
+
+Build the image:
+
+```powershell
+docker build -t sudoku-app .
+```
+
+Run the container:
+
+```powershell
+docker run --rm -p 8765:8765 sudoku-app
+```
+
+Then open [http://127.0.0.1:8765](http://127.0.0.1:8765).
+
 ## Project layout
 
 - `src/app/main.py`: FastAPI routes and static file hosting
