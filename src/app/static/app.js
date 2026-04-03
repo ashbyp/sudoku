@@ -70,11 +70,6 @@ let activeCell = null;
 let highlightedValue = null;
 let historyStack = [];
 let padButtons = new Map();
-let isDragSelecting = false;
-let dragAdditive = false;
-let dragMoved = false;
-let dragSuppressClick = false;
-let dragStartCell = null;
 
 let hasCelebratedCompletion = false;
 let isLoadingPuzzle = false;
@@ -806,6 +801,10 @@ function refreshSelectionStyles() {
 function setSelectionVisualState(cell, selected) {
   cell.container.classList.toggle("selected", selected);
   cell.container.setAttribute("aria-selected", selected ? "true" : "false");
+}
+
+function isAdditiveSelectionEvent(event) {
+  return Boolean(event?.ctrlKey || event?.metaKey || event?.shiftKey);
 }
 
 function addCellToSelection(cell) {
@@ -1744,34 +1743,6 @@ function selectCell(cell, appendSelection = false) {
   syncHighlightFromCell(activeCell);
 }
 
-function beginDragSelection(cell, event) {
-  if (!event || event.button !== 0) {
-    return;
-  }
-
-  isDragSelecting = true;
-  dragAdditive = event.ctrlKey || event.metaKey;
-  dragMoved = false;
-  dragSuppressClick = false;
-  dragStartCell = cell;
-
-  if (!dragAdditive) {
-    clearSelection();
-    addCellToSelection(cell);
-    return;
-  }
-}
-
-function endDragSelection() {
-  if (!isDragSelecting) {
-    return;
-  }
-
-  isDragSelecting = false;
-  dragSuppressClick = dragMoved;
-  dragStartCell = null;
-}
-
 function moveSelectionBy(deltaRow, deltaColumn, appendSelection = false) {
   if (!activeCell) {
     return;
@@ -2165,32 +2136,12 @@ function buildEditableCell(rowIndex, columnIndex, value) {
   };
 
   container.addEventListener("click", (event) => {
-    if (dragSuppressClick) {
-      event.preventDefault();
-      dragSuppressClick = false;
-      return;
-    }
-    selectCell(cell, event.ctrlKey || event.metaKey);
-  });
-
-  container.addEventListener("mousedown", (event) => {
-    beginDragSelection(cell, event);
-  });
-
-  container.addEventListener("mouseenter", () => {
-    if (!isDragSelecting) {
-      return;
-    }
-    if (!dragMoved && dragAdditive && dragStartCell) {
-      addCellToSelection(dragStartCell);
-    }
-    dragMoved = true;
-    addCellToSelection(cell);
+    selectCell(cell, isAdditiveSelectionEvent(event));
   });
 
   container.addEventListener("dblclick", (event) => {
     event.preventDefault();
-    selectCell(cell, event.ctrlKey || event.metaKey);
+    selectCell(cell, isAdditiveSelectionEvent(event));
     highlightAxisForCell(cell);
   });
 
@@ -2211,13 +2162,13 @@ function buildEditableCell(rowIndex, columnIndex, value) {
 
   input.addEventListener("click", (event) => {
     event.stopPropagation();
-    selectCell(cell, event.ctrlKey || event.metaKey);
+    selectCell(cell, isAdditiveSelectionEvent(event));
   });
 
   input.addEventListener("dblclick", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    selectCell(cell, event.ctrlKey || event.metaKey);
+    selectCell(cell, isAdditiveSelectionEvent(event));
     highlightAxisForCell(cell);
     suppressInputSelection(input);
   });
@@ -2234,7 +2185,7 @@ function buildEditableCell(rowIndex, columnIndex, value) {
         ArrowRight: [0, 1],
       };
       const [deltaRow, deltaColumn] = moveMap[event.key] ?? [0, 0];
-      const appendSelection = event.ctrlKey || event.metaKey;
+      const appendSelection = isAdditiveSelectionEvent(event);
       moveSelectionBy(deltaRow, deltaColumn, appendSelection);
       return;
     }
@@ -2467,10 +2418,6 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     convertSelectedPencilToCellNotes();
   }
-});
-
-document.addEventListener("mouseup", () => {
-  endDragSelection();
 });
 
 if (togglePencilButton) {
