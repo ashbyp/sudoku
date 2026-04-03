@@ -951,7 +951,7 @@ async function deletePuzzle(puzzleId) {
         cancelEditButton.click();
       }
     }
-    await loadAdminList();
+    await loadAdminList({ preserveScroll: true });
   } catch (error) {
     setStatus("Delete failed.", true);
   }
@@ -976,7 +976,7 @@ async function archivePuzzle(puzzleId) {
     if (editingPuzzleId === puzzleId && cancelEditButton) {
       cancelEditButton.click();
     }
-    await loadAdminList();
+    await loadAdminList({ preserveScroll: true });
   } catch (error) {
     setStatus("Archive failed.", true);
   }
@@ -998,7 +998,7 @@ async function unarchivePuzzle(puzzleId) {
       return;
     }
     setStatus("Puzzle unarchived.");
-    await loadAdminList();
+    await loadAdminList({ preserveScroll: true });
   } catch (error) {
     setStatus("Unarchive failed.", true);
   }
@@ -1014,10 +1014,13 @@ function setEditingState(puzzleId) {
   }
 }
 
-async function loadAdminList() {
+async function loadAdminList(options = {}) {
   if (!adminList || !adminArchivedList) {
     return;
   }
+  const preserveScroll = Boolean(options?.preserveScroll);
+  const previousScrollX = preserveScroll ? window.scrollX : 0;
+  const previousScrollY = preserveScroll ? window.scrollY : 0;
   adminList.innerHTML = "";
   adminArchivedList.innerHTML = "";
   try {
@@ -1046,7 +1049,7 @@ async function loadAdminList() {
     active.forEach((puzzle) => {
       const li = document.createElement("li");
       const label = document.createElement("span");
-      label.textContent = `${puzzle.name} ${puzzle.has_solution ? "(with solution)" : "(no solution)"}`;
+      label.textContent = `${puzzle.name} ${puzzle.has_solution ? "(with solution)" : "(no solution)"} - ${Number(puzzle.completion_count ?? 0)} completed`;
       const editButton = document.createElement("button");
       editButton.type = "button";
       editButton.className = "control-muted";
@@ -1078,7 +1081,7 @@ async function loadAdminList() {
     archived.forEach((puzzle) => {
       const li = document.createElement("li");
       const label = document.createElement("span");
-      label.textContent = `${puzzle.name} ${puzzle.has_solution ? "(with solution)" : "(no solution)"}`;
+      label.textContent = `${puzzle.name} ${puzzle.has_solution ? "(with solution)" : "(no solution)"} - ${Number(puzzle.completion_count ?? 0)} completed`;
       const unarchiveButton = document.createElement("button");
       unarchiveButton.type = "button";
       unarchiveButton.className = "control-muted";
@@ -1101,6 +1104,12 @@ async function loadAdminList() {
   } catch (error) {
     adminList.innerHTML = "<li>Unable to load custom puzzles.</li>";
     adminArchivedList.innerHTML = "<li>Unable to load custom puzzles.</li>";
+  } finally {
+    if (preserveScroll) {
+      window.requestAnimationFrame(() => {
+        window.scrollTo(previousScrollX, previousScrollY);
+      });
+    }
   }
 }
 

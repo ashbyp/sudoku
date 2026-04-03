@@ -22,10 +22,10 @@ pip install -e .[dev]
 3. Run the app:
 
 ```powershell
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8765
 ```
 
-4. Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
+4. Open [http://127.0.0.1:8765](http://127.0.0.1:8765).
 
 ## Project layout
 

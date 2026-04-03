@@ -120,6 +120,16 @@ body.celebration-bg::after {
   margin: 0;
 }
 
+.brand-lockup {
+  margin-bottom: 10px;
+}
+
+.brand-logo {
+  display: block;
+  width: min(360px, 70vw);
+  height: auto;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   text-transform: uppercase;
@@ -902,6 +912,10 @@ body.celebration-bg::after {
 }
 
 @media (max-width: 820px) {
+  .brand-logo {
+    width: min(280px, 78vw);
+  }
+
   .controls {
     justify-items: stretch;
   }

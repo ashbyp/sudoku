@@ -146,9 +146,17 @@ def list_admin_custom_puzzles(
     with get_db() as db:
         rows = db.execute(
             """
-            SELECT id, name, solution_json, created_at, archived_at
+            SELECT custom_puzzles.id,
+                   custom_puzzles.name,
+                   custom_puzzles.solution_json,
+                   custom_puzzles.created_at,
+                   custom_puzzles.archived_at,
+                   COUNT(custom_puzzle_completions.user_id) AS completion_count
             FROM custom_puzzles
-            ORDER BY created_at DESC
+            LEFT JOIN custom_puzzle_completions
+              ON custom_puzzles.id = custom_puzzle_completions.puzzle_id
+            GROUP BY custom_puzzles.id
+            ORDER BY custom_puzzles.created_at DESC
             """
         ).fetchall()
     puzzles = [
@@ -158,6 +166,7 @@ def list_admin_custom_puzzles(
             "has_solution": row["solution_json"] is not None,
             "created_at": row["created_at"],
             "archived": row["archived_at"] is not None,
+            "completion_count": int(row["completion_count"] or 0),
         }
         for row in rows
     ]

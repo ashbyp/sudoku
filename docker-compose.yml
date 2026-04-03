@@ -4,4 +4,4 @@ services:
   sudoku:
     image: sudoku:latest
     ports:
-      - "8000:8000"
+      - "8765:8765"
