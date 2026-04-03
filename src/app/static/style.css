@@ -1021,6 +1021,7 @@ body.celebration-bg::after {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   padding: 0 6px;
   text-align: center;
   color: var(--accent-strong);
@@ -1030,6 +1031,16 @@ body.celebration-bg::after {
   letter-spacing: 0.02em;
   pointer-events: none;
   z-index: 1;
+}
+
+.center-candidate {
+  border-radius: 999px;
+  padding: 0 2px;
+}
+
+.center-candidate.match-note {
+  color: var(--accent-strong);
+  background: rgba(204, 90, 45, 0.18);
 }
 
 .user-avatar {

@@ -58,6 +58,7 @@ const loadCustomButton = document.querySelector("#load-custom");
 
 const THEME_STORAGE_KEY = "sudoku-theme";
 const EMAIL_STORAGE_KEY = "sudoku-last-email";
+const MAX_HISTORY_ENTRIES = 500;
 
 let puzzle = [];
 let solution = [];
@@ -273,6 +274,7 @@ function restoreFromSave(data) {
       syncCellDisplay(cell);
     });
   });
+  updateNumberPadAvailability();
 
   clearInvalidStates();
   clearIncorrectStates();
@@ -632,6 +634,9 @@ function pushHistory(action) {
     return;
   }
   historyStack.push(action);
+  if (historyStack.length > MAX_HISTORY_ENTRIES) {
+    historyStack.shift();
+  }
 }
 
 function clearInvalidStates() {
@@ -794,10 +799,13 @@ function applyHintAction(action) {
 
 function refreshSelectionStyles() {
   cells.forEach((cell) => {
-    const selected = selectedCells.has(cell);
-    cell.container.classList.toggle("selected", selected);
-    cell.container.setAttribute("aria-selected", selected ? "true" : "false");
+    setSelectionVisualState(cell, selectedCells.has(cell));
   });
+}
+
+function setSelectionVisualState(cell, selected) {
+  cell.container.classList.toggle("selected", selected);
+  cell.container.setAttribute("aria-selected", selected ? "true" : "false");
 }
 
 function addCellToSelection(cell) {
@@ -806,7 +814,7 @@ function addCellToSelection(cell) {
   }
   selectedCells.add(cell);
   activeCell = cell;
-  refreshSelectionStyles();
+  setSelectionVisualState(cell, true);
   syncHighlightFromCell(activeCell);
 }
 function updatePencilButton() {
@@ -832,7 +840,21 @@ function updateNotesVisibility(cell) {
 
 function updateCenterCandidatesVisibility(cell) {
   const values = [...cell.centerCandidates].sort((a, b) => a - b);
-  cell.centerCandidatesElement.textContent = values.join(" ");
+  const key = values.join(",");
+  if (cell.centerCandidatesKey !== key) {
+    cell.centerCandidatesElement.textContent = "";
+    values.forEach((digit, index) => {
+      if (index > 0) {
+        cell.centerCandidatesElement.appendChild(document.createTextNode(" "));
+      }
+      const candidateElement = document.createElement("span");
+      candidateElement.className = "center-candidate";
+      candidateElement.dataset.digit = String(digit);
+      candidateElement.textContent = String(digit);
+      cell.centerCandidatesElement.appendChild(candidateElement);
+    });
+    cell.centerCandidatesKey = key;
+  }
   cell.centerCandidatesElement.hidden = cell.value !== 0 || values.length === 0;
 }
 
@@ -856,7 +878,7 @@ function updateNumberPadAvailability() {
   });
 }
 
-function syncCellDisplay(cell) {
+function syncCellDisplay(cell, updatePadAvailability = false) {
   cell.input.value = cell.value === 0 ? "" : String(cell.value);
   cell.input.readOnly = true;
   cell.input.classList.toggle("fixed", cell.fixed);
@@ -864,7 +886,9 @@ function syncCellDisplay(cell) {
   cell.notesElement.hidden = cell.value !== 0;
   updateNotesVisibility(cell);
   updateCenterCandidatesVisibility(cell);
-  updateNumberPadAvailability();
+  if (updatePadAvailability) {
+    updateNumberPadAvailability();
+  }
 }
 
 function setCellValue(cell, value) {
@@ -873,18 +897,21 @@ function setCellValue(cell, value) {
     cell.notes.clear();
     cell.centerCandidates.clear();
   }
-  syncCellDisplay(cell);
+  syncCellDisplay(cell, true);
 }
 
 function clearCellValue(cell) {
   cell.value = 0;
-  syncCellDisplay(cell);
+  syncCellDisplay(cell, true);
 }
 
 function applyMatchHighlights(value) {
   cells.forEach((cell) => cell.container.classList.remove("match"));
-  cells.forEach((cell) => {
-    cell.noteElements.forEach((noteElement) => noteElement.classList.remove("match-note"));
+  document.querySelectorAll(".note.match-note").forEach((noteElement) => {
+    noteElement.classList.remove("match-note");
+  });
+  document.querySelectorAll(".center-candidate.match-note").forEach((candidateElement) => {
+    candidateElement.classList.remove("match-note");
   });
 
   if (!value) {
@@ -894,6 +921,12 @@ function applyMatchHighlights(value) {
   cells.forEach((cell) => {
     if (cell.value === Number(value)) {
       cell.container.classList.add("match");
+    }
+    const matchingCenterCandidate = cell.centerCandidatesElement.querySelector(
+      `.center-candidate[data-digit="${Number(value)}"]`,
+    );
+    if (matchingCenterCandidate) {
+      matchingCenterCandidate.classList.add("match-note");
     }
     cell.noteElements.forEach((noteElement, index) => {
       if (index + 1 === Number(value)) {
@@ -1691,14 +1724,14 @@ function selectCell(cell, appendSelection = false) {
     if (selectedCells.has(cell)) {
       selectedCells.delete(cell);
       activeCell = selectedCells.size > 0 ? Array.from(selectedCells).at(-1) : null;
-      refreshSelectionStyles();
+      setSelectionVisualState(cell, false);
       syncHighlightFromCell(activeCell);
       return;
     }
 
     selectedCells.add(cell);
     activeCell = cell;
-    refreshSelectionStyles();
+    setSelectionVisualState(cell, true);
     cell.input.focus();
     syncHighlightFromCell(activeCell);
     return;
@@ -1813,6 +1846,7 @@ function undoLastAction() {
   }
 
   action.cells.forEach(restoreCell);
+  updateNumberPadAvailability();
   if (action.highlightedValue == null) {
     clearMatchHighlights();
   } else {
@@ -1946,7 +1980,11 @@ function applyDigitToSelection(digit, forcePencil = false, forceCenter = false) 
 
   changedCells.forEach((cell) => {
     peerCells(cell).forEach((peer) => {
-      if (!peer.fixed && peer.value === 0 && peer.notes.has(digit)) {
+      if (
+        !peer.fixed
+        && peer.value === 0
+        && (peer.notes.has(digit) || peer.centerCandidates.has(digit))
+      ) {
         actionCells.set(`${peer.row}-${peer.column}`, snapshotCell(peer));
       }
     });
@@ -1957,10 +1995,19 @@ function applyDigitToSelection(digit, forcePencil = false, forceCenter = false) 
   });
 
   let clearedPeerNotes = 0;
+  let clearedPeerCenters = 0;
   changedCells.forEach((cell) => {
     peerCells(cell).forEach((peer) => {
+      let peerChanged = false;
       if (!peer.fixed && peer.value === 0 && peer.notes.delete(digit)) {
         clearedPeerNotes += 1;
+        peerChanged = true;
+      }
+      if (!peer.fixed && peer.value === 0 && peer.centerCandidates.delete(digit)) {
+        clearedPeerCenters += 1;
+        peerChanged = true;
+      }
+      if (peerChanged) {
         syncCellDisplay(peer);
       }
     });
@@ -1975,8 +2022,14 @@ function applyDigitToSelection(digit, forcePencil = false, forceCenter = false) 
   finalizeBatchSelection();
   updateBoardStatus();
 
-  if (clearedPeerNotes > 0) {
+  if (clearedPeerNotes > 0 && clearedPeerCenters > 0) {
+    updateStatus(
+      `Placed ${digit} and removed matching pencil marks (${clearedPeerNotes}) and cell candidates (${clearedPeerCenters}) from peer cells.`,
+    );
+  } else if (clearedPeerNotes > 0) {
     updateStatus(`Placed ${digit} and removed matching pencil marks from ${clearedPeerNotes} peer cell${clearedPeerNotes === 1 ? "" : "s"}.`);
+  } else if (clearedPeerCenters > 0) {
+    updateStatus(`Placed ${digit} and removed matching cell candidates from ${clearedPeerCenters} peer cell${clearedPeerCenters === 1 ? "" : "s"}.`);
   }
   schedulePuzzleSave("place");
 }
@@ -2102,6 +2155,7 @@ function buildEditableCell(rowIndex, columnIndex, value) {
     fixed: value !== 0,
     notes: new Set(),
     centerCandidates: new Set(),
+    centerCandidatesKey: "",
     mark: null,
     container,
     input,
@@ -2264,6 +2318,7 @@ function renderBoard(grid) {
       cells.push(cell);
     });
   });
+  updateNumberPadAvailability();
 }
 
 function solveBoard() {
