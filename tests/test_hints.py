@@ -9,6 +9,10 @@ def _blank_notes():
     return [[[] for _ in range(9)] for _ in range(9)]
 
 
+def _blank_center_notes():
+    return [[[] for _ in range(9)] for _ in range(9)]
+
+
 def test_hint_prefers_singles():
     solution = [
         [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -98,6 +102,18 @@ def test_pencil_mark_hint_skips_when_notes_present():
     notes[0][0] = [5]
     notes[1][0] = [5]
     hint = get_hint(board, notes)
+    assert not (hint.get("action") and hint["action"].get("type") == "note-add")
+
+
+def test_hint_treats_center_notes_like_pencil_notes():
+    board = _blank_board()
+    board[2][3] = 5
+    board[3][1] = 5
+    board[6][2] = 5
+    center_notes = _blank_center_notes()
+    center_notes[0][0] = [5]
+    center_notes[1][0] = [5]
+    hint = get_hint(board, _blank_notes(), center_notes)
     assert not (hint.get("action") and hint["action"].get("type") == "note-add")
 
 

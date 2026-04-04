@@ -160,9 +160,23 @@ def _notes_show_only(
     )
 
 
-def get_hint(board: Grid, notes: list[list[list[int]]] | None = None) -> dict[str, object]:
+def _merge_note_masks(
+    primary: dict[tuple[int, int], set[int]],
+    secondary: dict[tuple[int, int], set[int]],
+) -> dict[tuple[int, int], set[int]]:
+    merged: dict[tuple[int, int], set[int]] = {pos: set(digits) for pos, digits in primary.items()}
+    for pos, digits in secondary.items():
+        merged.setdefault(pos, set()).update(digits)
+    return merged
+
+
+def get_hint(
+    board: Grid,
+    notes: list[list[list[int]]] | None = None,
+    center_notes: list[list[list[int]]] | None = None,
+) -> dict[str, object]:
     cand = _build_candidate_map_with_notes(board, notes)
-    note_mask = _notes_mask(notes)
+    note_mask = _merge_note_masks(_notes_mask(notes), _notes_mask(center_notes))
 
     # Contradiction check.
     dead = [(r, c) for (r, c), opts in cand.items() if len(opts) == 0]

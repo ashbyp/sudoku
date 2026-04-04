@@ -721,6 +721,18 @@ function programmaticSelectCells(nextCells) {
   syncHighlightFromCell(activeCell);
 }
 
+function resolveHintTargetCells(action) {
+  const targets = Array.isArray(action?.cells) ? action.cells : [];
+  return targets.map((target) => {
+    const row = Number(target?.row);
+    const column = Number(target?.column);
+    if (!Number.isFinite(row) || !Number.isFinite(column)) {
+      return null;
+    }
+    return cells[row * 9 + column] ?? null;
+  }).filter(Boolean);
+}
+
 function applyHintAction(action) {
   if (!action || typeof action !== "object") {
     return;
@@ -747,18 +759,8 @@ function applyHintAction(action) {
     if (!Number.isFinite(digit) || digit < 1 || digit > 9) {
       return;
     }
-
     hintPencilDirective = { mode: "remove", digit };
-
-    const targets = Array.isArray(action.cells) ? action.cells : [];
-    const targetCells = targets.map((target) => {
-      const row = Number(target?.row);
-      const column = Number(target?.column);
-      if (!Number.isFinite(row) || !Number.isFinite(column)) {
-        return null;
-      }
-      return cells[row * 9 + column] ?? null;
-    }).filter(Boolean);
+    const targetCells = resolveHintTargetCells(action);
 
     programmaticSelectCells(targetCells);
     return;
@@ -769,18 +771,8 @@ function applyHintAction(action) {
     if (!Number.isFinite(digit) || digit < 1 || digit > 9) {
       return;
     }
-
     hintPencilDirective = { mode: "add", digit };
-
-    const targets = Array.isArray(action.cells) ? action.cells : [];
-    const targetCells = targets.map((target) => {
-      const row = Number(target?.row);
-      const column = Number(target?.column);
-      if (!Number.isFinite(row) || !Number.isFinite(column)) {
-        return null;
-      }
-      return cells[row * 9 + column] ?? null;
-    }).filter(Boolean);
+    const targetCells = resolveHintTargetCells(action);
 
     programmaticSelectCells(targetCells);
     return;
@@ -1257,7 +1249,11 @@ async function requestHint() {
     const { response, data } = await fetchJson("/api/hint", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ board: currentBoard(), notes: currentNotes() }),
+      body: JSON.stringify({
+        board: currentBoard(),
+        notes: currentNotes(),
+        center_notes: currentCenterNotes(),
+      }),
     });
 
     if (!response.ok) {
@@ -1438,21 +1434,14 @@ function applyHintAcceptance() {
 
   if (type === "note-remove" || type === "note-add") {
     const digit = Number(lastHintAction.digit);
-    const targets = Array.isArray(lastHintAction.cells) ? lastHintAction.cells : [];
-    const targetCells = targets.map((target) => {
-      const row = Number(target?.row);
-      const column = Number(target?.column);
-      if (!Number.isFinite(row) || !Number.isFinite(column)) {
-        return null;
-      }
-      return cells[row * 9 + column] ?? null;
-    }).filter(Boolean);
+    const targetCells = resolveHintTargetCells(lastHintAction);
 
     if (!targetCells.length || !Number.isFinite(digit)) {
       return;
     }
 
-    hintPencilDirective = { mode: type === "note-add" ? "add" : "remove", digit };
+    const mode = type === "note-add" ? "add" : "remove";
+    hintPencilDirective = { mode, digit };
     programmaticSelectCells(targetCells);
     applyDigitToSelection(digit, true);
     lastHintAction = null;
@@ -1909,8 +1898,14 @@ function applyDigitToSelection(digit, forcePencil = false, forceCenter = false) 
 
   if (usePencilMode) {
     // If the most recent hint asked to remove a candidate, don't "toggle" it on.
-    const removeOnly = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
-    const addOnly = hintPencilDirective?.mode === "add" && hintPencilDirective?.digit === digit;
+    const removeOnly = (
+      hintPencilDirective?.mode === "remove"
+      && hintPencilDirective?.digit === digit
+    );
+    const addOnly = (
+      hintPencilDirective?.mode === "add"
+      && hintPencilDirective?.digit === digit
+    );
     const action = {
       label: removeOnly ? "hint candidate removal" : (addOnly ? "hint candidate add" : "pencil marks"),
       highlightedValue,
@@ -2215,7 +2210,10 @@ function buildEditableCell(rowIndex, columnIndex, value) {
     if (event.key >= "1" && event.key <= "9") {
       event.preventDefault();
       const digit = Number(event.key);
-      const forcedByHint = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
+      const forcedByHint = (
+        hintPencilDirective?.mode === "remove"
+        && hintPencilDirective?.digit === digit
+      );
       const ctrlPencil = event.ctrlKey || event.metaKey;
       const shiftCenter = event.shiftKey;
       applyDigitToSelection(digit, forcedByHint || ctrlPencil, shiftCenter);
@@ -2254,7 +2252,10 @@ function renderNumberPad() {
     button.className = "pad-button";
     button.textContent = String(digit);
     button.addEventListener("click", (event) => {
-      const forcedByHint = hintPencilDirective?.mode === "remove" && hintPencilDirective?.digit === digit;
+      const forcedByHint = (
+        hintPencilDirective?.mode === "remove"
+        && hintPencilDirective?.digit === digit
+      );
       applyDigitToSelection(
         digit,
         forcedByHint || event.ctrlKey || event.metaKey,

@@ -29,7 +29,9 @@ def check_board(payload: BoardPayload) -> dict[str, object]:
 
 @router.post("/api/hint")
 def hint(payload: HintPayload) -> dict[str, object]:
-    return get_hint(payload.board, payload.notes)
+    notes = ensure_notes(payload.notes)
+    center_notes = ensure_center_notes(payload.center_notes)
+    return get_hint(payload.board, notes, center_notes)
 
 
 @router.get("/api/best-time")

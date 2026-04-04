@@ -13,6 +13,7 @@ class BoardPayload(BaseModel):
 class HintPayload(BoardPayload):
     # Optional pencil marks grid (9x9). Each entry is a list of candidate digits shown in the UI.
     notes: list[list[list[int]]] | None = None
+    center_notes: list[list[list[int]]] | None = None
 
 
 class TimePayload(BaseModel):
